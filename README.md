@@ -54,7 +54,7 @@ If using the default configuration above, consider `${path.root}/private` to be 
 # Generates TLS certificates via vault pki
 # Restarts nomad and vault with TLS
 module "par1_cluster_origin" {
-  source = "github.com/bevry/hashistack-scaleway"
+  source = "bevry/hashistack/scaleway"
 
   providers = {
     scaleway = "scaleway"
@@ -73,7 +73,7 @@ module "par1_cluster_origin" {
 # Master Server
 # Creates consul server + nomad server
 module "par1_cluster_master" {
-  source = "github.com/bevry/hashistack-scaleway"
+  source = "bevry/hashistack/scaleway"
 
   providers = {
     scaleway = "scaleway"
@@ -93,7 +93,7 @@ module "par1_cluster_master" {
 # Slave Server
 # Creates consul agent + docker + nomad agent
 module "par1_cluster_slave" {
-  source = "github.com/bevry/hashistack-scaleway"
+  source = "bevry/hashistack/scaleway"
 
   providers = {
     scaleway = "scaleway"
