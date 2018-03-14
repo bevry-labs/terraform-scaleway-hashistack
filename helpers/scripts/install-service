@@ -1,0 +1,68 @@
+#!/usr/bin/bash
+set -ueE -o pipefail
+
+function user_exists {
+  local username="$1"
+  id "$username" >/dev/null 2>&1
+}
+
+# Locals
+if test -z "$5"; then
+	echo 'not enough arguments'
+	exit 1
+fi
+USERNAME="$1"
+GROUP="$2"
+SERVICE="$3"
+URL="$4"
+EXPECTED_VERSION="$5"
+
+# Install
+echo "Installing $SERVICE..."
+curl -L -o "/root/cluster/tmp/$SERVICE.zip" "$URL"
+unzip -d "/root/cluster/tmp/" "/root/cluster/tmp/$SERVICE.zip"
+chmod +x "/root/cluster/tmp/$SERVICE"
+sudo mv "/root/cluster/tmp/$SERVICE" "/usr/local/bin/$SERVICE"
+rm "/root/cluster/tmp/$SERVICE.zip"
+
+echo "Comparing $SERVICE versions..."
+VERSION="$($SERVICE -v)"
+echo "actual version:  $VERSION"
+echo "desired version: $EXPECTED_VERSION"
+
+echo "Installing $SERVICE service..."
+
+# create user
+if ! user_exists "$USERNAME"; then
+	sudo useradd "$USERNAME"
+fi
+
+# executable configuration
+# sudo chown "$USERNAME:$GROUP" "/usr/local/bin/$SERVICE"
+# sudo chmod 0644 "/usr/local/bin/$SERVICE"
+
+# data configuraiton
+rm -Rf "/opt/$SERVICE"
+mkdir -p "/opt/$SERVICE/data"
+sudo chmod -R 0740 "/opt/$SERVICE"
+sudo chown -R "$USERNAME:$GROUP" "/opt/$SERVICE"
+
+# service configuration
+sudo rm -Rf "/etc/systemd/system/$SERVICE.d"
+sudo mkdir -p "/etc/systemd/system/$SERVICE.d"
+sudo cp "/root/cluster/tmp/$SERVICE.json" "/etc/systemd/system/$SERVICE.d/"
+sudo chmod 0640 "/etc/systemd/system/$SERVICE.d/$SERVICE.json"
+sudo chown "$USERNAME:$GROUP" "/etc/systemd/system/$SERVICE.d/$SERVICE.json"
+
+# service specification
+sudo rm -Rf "/etc/systemd/system/$SERVICE.service"
+sudo cp "/root/cluster/tmp/$SERVICE.conf" "/etc/systemd/system/$SERVICE.service"
+sudo chmod 0640 "/etc/systemd/system/$SERVICE.service"
+sudo chown "$USERNAME:$GROUP" "/etc/systemd/system/$SERVICE.service"
+
+echo "Starting $SERVICE..."
+sudo systemctl enable "$SERVICE.service"
+sudo systemctl start "$SERVICE"
+sudo systemctl status "$SERVICE"
+
+# sudo -u nomady /usr/local/bin/nomad agent -config=/etc/systemd/system/nomad.d

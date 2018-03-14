@@ -1,0 +1,64 @@
+#!/usr/bin/bash
+set -ueE -o pipefail
+
+# Variables
+VAR_TYPE="$(tr -d '\n' < /root/cluster/var/type)"
+VAR_CONSUL_TYPE="$(tr -d '\n' < /root/cluster/var/consul_type)"
+VAR_VAULT_TYPE="$(tr -d '\n' < /root/cluster/var/vault_type)"
+VAR_DOCKER_TYPE="$(tr -d '\n' < /root/cluster/var/docker_type)"
+VAR_NOMAD_TYPE="$(tr -d '\n' < /root/cluster/var/nomad_type)"
+
+echo ""
+echo "Installing dependencies..."
+sudo yum update -y
+sudo yum install -y unzip
+# sudo yum install -y net-tools # ifconfig
+# sudo yum install -y bind-tools # dig
+
+echo ""
+echo "Configuring ports..."
+# https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/security_guide/sec-using_firewalls
+while read -r port; do
+	echo "configuring local $port/tcp"
+	sudo firewall-cmd --zone=internal --add-port="$port/tcp" --permanent
+done </root/cluster/var/ports_local_tcp
+while read -r port; do
+	echo "configuring local $port/udp"
+	sudo firewall-cmd --zone=internal --add-port="$port/udp" --permanent
+done </root/cluster/var/ports_local_udp
+sudo firewall-cmd --reload
+
+
+echo ""
+echo "Configuring services as $VAR_TYPE..."
+pushd /root/cluster/scripts
+
+echo ""
+echo "Configuring consul as $VAR_CONSUL_TYPE..."
+if test -n "$VAR_CONSUL_TYPE"; then
+	./consul
+fi
+
+echo ""
+echo "Configuring vault as $VAR_VAULT_TYPE..."
+if test -n "$VAR_VAULT_TYPE"; then
+	./vault
+fi
+if test "$VAR_VAULT_TYPE" = "origin"; then
+	./vault-init
+fi
+
+echo ""
+echo "Configuring docker as $VAR_DOCKER_TYPE..."
+if test -n "$VAR_DOCKER_TYPE"; then
+	./docker
+fi
+
+
+echo ""
+echo "Configuring nomad as $VAR_NOMAD_TYPE..."
+if test -n "$VAR_NOMAD_TYPE"; then
+	./nomad
+fi
+
+popd

@@ -1,0 +1,7 @@
+#!/usr/bin/bash
+set -ueE -o pipefail
+
+if test -d /root/cluster; then
+	find /root/cluster -type f -exec shred --remove {} \;
+	rm -Rf /root/custer
+fi

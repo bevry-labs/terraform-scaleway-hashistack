@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+
+# Inputs
+SSH_KEY_PATH="$1"
+VAR_DIR_PATH="$2"
+PUBLIC_IP="$3"
+
+# Locals
+REMOTE_VAR_PATH="/root/cluster/tmp"
+
+echo ""
+echo "adding the new host to known hosts"
+ssh-keygen -R "$PUBLIC_IP"
+ssh-keyscan "$PUBLIC_IP" >> "$HOME/.ssh/known_hosts"
+rm -f "$HOME/.ssh/known_hosts.old"
+
+echo ""
+echo "to access the consul web ui, and ssh into the server use the following:"
+echo "ssh -L 127.0.0.1:8500:127.0.0.1:8500 root@$PUBLIC_IP"
+echo "open http://127.0.0.1:8500"
+
+echo ""
+echo "copying vault outputs into $VAR_DIR_PATH and extracting values"
+rm -Rf "$VAR_DIR_PATH"
+mkdir -p "$VAR_DIR_PATH"
+pushd "$VAR_DIR_PATH"
+scp -i "$SSH_KEY_PATH" "root@$PUBLIC_IP:$REMOTE_VAR_PATH/vault-init $REMOTE_VAR_PATH/vault-cluster $REMOTE_VAR_PATH/vault-nomad" "."
+grep 'Unseal Key 1' < ./vault-init | sed -E 's/.+: //' > ./unseal-key-01
+grep 'Unseal Key 2' < ./vault-init | sed -E 's/.+: //' > ./unseal-key-02
+grep 'Unseal Key 3' < ./vault-init | sed -E 's/.+: //' > ./unseal-key-03
+grep 'Unseal Key 4' < ./vault-init | sed -E 's/.+: //' > ./unseal-key-04
+grep 'Unseal Key 5' < ./vault-init | sed -E 's/.+: //' > ./unseal-key-05
+grep 'Initial Root Token' < ./vault-init | sed -E 's/.+: //' > ./root-token
+grep 'token ' < ./vault-cluster | sed -E 's/.+ +//' > ./cluster-token
+grep 'token ' < ./vault-nomad | sed -E 's/.+ +//' > ./nomad-token
+popd

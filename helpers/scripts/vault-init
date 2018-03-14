@@ -1,0 +1,44 @@
+#!/usr/bin/bash
+set -ueE -o pipefail
+
+# Working Directory
+pushd /root/cluster/tmp
+
+# Variables
+VAR_PRIVATE_IP="$(tr -d '\n' < /root/cluster/var/private_ip)"
+
+# Configure vault CLI to acces the vault server
+export VAULT_ADDR="http://$VAR_PRIVATE_IP:8200"
+
+# Initialise the vault
+echo "Initialising the vault..."
+vault operator init | sed 's/\x1b\[[0-9;]*m//g' > ./vault-init
+UNSEAL_KEY_1="$(grep 'Unseal Key 1' < ./vault-init | sed -E 's/.+: //')"
+UNSEAL_KEY_2="$(grep 'Unseal Key 2' < ./vault-init | sed -E 's/.+: //')"
+UNSEAL_KEY_3="$(grep 'Unseal Key 3' < ./vault-init | sed -E 's/.+: //')"
+ROOT_TOKEN="$(grep 'Initial Root Token' < ./vault-init | sed -E 's/.+: //')"
+
+# Unseal the vault
+echo -e "Unsealing the vault..."
+vault operator unseal "$UNSEAL_KEY_1"
+vault operator unseal "$UNSEAL_KEY_2"
+vault operator unseal "$UNSEAL_KEY_3"
+echo ""
+
+# Create the cluster token
+echo -e "Creating the cluster token..."
+env VAULT_TOKEN="$ROOT_TOKEN" vault token create -display-name=cluster | sed 's/\x1b\[[0-9;]*m//g' > ./vault-cluster
+CLUSTER_TOKEN="$(grep 'token ' < ./vault-cluster | sed -E 's/.+ +//')"
+echo ""
+
+# https://www.nomadproject.io/docs/vault-integration/index.html
+echo -e "Setup vault permissions for nomad..."
+curl https://nomadproject.io/data/vault/nomad-server-policy.hcl -O -s -L
+curl https://nomadproject.io/data/vault/nomad-cluster-role.json -O -s -L
+env VAULT_TOKEN="$CLUSTER_TOKEN" vault policy write nomad-server nomad-server-policy.hcl
+env VAULT_TOKEN="$CLUSTER_TOKEN" vault write /auth/token/roles/nomad-cluster @nomad-cluster-role.json
+env VAULT_TOKEN="$CLUSTER_TOKEN" vault token create -policy nomad-server -period 72h -orphan | sed 's/\x1b\[[0-9;]*m//g' > ./vault-nomad
+grep 'token ' < ./vault-nomad | sed -E 's/.+ +//' > /root/cluster/var/nomad_token
+echo ""
+
+echo "Vault initialised"

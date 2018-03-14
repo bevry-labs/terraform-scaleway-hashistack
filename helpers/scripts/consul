@@ -1,0 +1,98 @@
+#!/usr/bin/bash
+set -ueE -o pipefail
+
+# Locals
+SERVICE="consul"
+USERNAME="root"
+GROUP="$USERNAME"
+
+# Variables
+pushd /root/cluster/var
+VAR_CONSUL_VERSION="$(tr -d '\n' < ./consul_version)"
+VAR_CONSUL_URL="$(tr -d '\n' < ./consul_url)"
+VAR_CONSUL_TYPE="$(tr -d '\n' < ./consul_type)"
+VAR_CONSUL_EXPECT="$(tr -d '\n' < ./consul_expect)"
+VAR_PRIVATE_IP="$(tr -d '\n' < ./private_ip)"
+VAR_LOOPBACK_IP="$(tr -d '\n' < ./loopback_ip)"
+VAR_JOIN="$(tr -d '\n' < ./join)"
+
+# "recursors" : [ "8.8.8.8", "8.8.4.4" ],
+echo "Writing consul configuration..."
+cat >/root/cluster/tmp/consul.conf << EOF
+[Unit]
+Description=consul agent
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+Restart=on-failure
+EnvironmentFile=-/etc/sysconfig/consul
+ExecStart=/usr/local/bin/consul agent -config-dir=/etc/systemd/system/consul.d
+ExecReload=/bin/kill -HUP \$MAINPID
+KillSignal=SIGTERM
+User=$USERNAME
+Group=$GROUP
+
+[Install]
+WantedBy=multi-user.target
+EOF
+if test "$VAR_CONSUL_TYPE" = "origin"; then
+	cat > /root/cluster/tmp/consul.json << EOF
+{
+	"bootstrap": true,
+	"server": true,
+
+	"ports" : {
+		"dns": 53
+	},
+	"ui": true,
+	"data_dir": "/opt/consul/data",
+	"bind_addr": "$VAR_PRIVATE_IP",
+	"client_addr": "$VAR_LOOPBACK_IP"
+}
+EOF
+elif test "$VAR_CONSUL_TYPE" = "master"; then
+	cat > /root/cluster/tmp/consul.json << EOF
+{
+	"bootstrap_expect": $VAR_CONSUL_EXPECT,
+	"server": true,
+	"retry_join": ["$VAR_JOIN"],
+
+	"ports" : {
+		"dns": 53
+	},
+	"ui": true,
+	"data_dir": "/opt/consul/data",
+	"bind_addr": "$VAR_PRIVATE_IP",
+	"client_addr": "$VAR_LOOPBACK_IP"
+}
+EOF
+elif test "$VAR_CONSUL_TYPE" = "slave"; then
+	cat > /root/cluster/tmp/consul.json << EOF
+{
+	"retry_join": ["$VAR_JOIN"],
+	"ports" : {
+		"dns": 53
+	},
+	"ui": true,
+	"data_dir": "/opt/consul/data",
+	"bind_addr": "$VAR_PRIVATE_IP",
+	"client_addr": "$VAR_LOOPBACK_IP"
+}
+EOF
+else
+	echo "!unknown consul type!"
+	exit 1
+fi
+
+echo "Configuring Consul DNS access..."
+echo "nameserver $VAR_LOOPBACK_IP" | cat - /etc/resolv.conf > /tmp/resolv.conf && sudo mv /tmp/resolv.conf /etc/resolv.conf
+# we can't just do
+# sudo echo "nameserver $VAR_LOOPBACK_IP" > /etc/resolv.conf
+# becasuse /etc/resolv.conf also contains these, which is necessary for scaleway networking perhaps... we could try add them to the consul resolver, but not sure that works
+# nameserver 10.1.94.8
+# domain cloud.online.net
+# search cloud.online.net
+
+echo "Installing service..."
+/root/cluster/scripts/install-service "$USERNAME" "$GROUP" "$SERVICE" "$VAR_CONSUL_URL" "$VAR_CONSUL_VERSION"

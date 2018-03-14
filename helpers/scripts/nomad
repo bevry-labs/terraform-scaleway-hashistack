@@ -1,0 +1,86 @@
+#!/usr/bin/bash
+set -ueE -o pipefail
+
+# Locals
+SERVICE="nomad"
+USERNAME="nomady"
+GROUP="$USERNAME"
+
+# Variables
+pushd /root/cluster/var
+VAR_NOMAD_VERSION="$(tr -d '\n' < ./nomad_version)"
+VAR_NOMAD_URL="$(tr -d '\n' < ./nomad_url)"
+VAR_NOMAD_TYPE="$(tr -d '\n' < ./nomad_type)"
+VAR_NOMAD_TOKEN="$(tr -d '\n' < ./nomad_token)"
+VAR_NOMAD_EXPECT="$(tr -d '\n' < ./nomad_expect)"
+VAR_PRIVATE_IP="$(tr -d '\n' < ./private_ip)"
+VAR_REGION="$(tr -d '\n' < ./region)"
+popd
+
+# https://www.nomadproject.io/docs/agent/configuration/index.html
+# https://www.nomadproject.io/guides/cluster/automatic.html
+# https://www.nomadproject.io/docs/agent/configuration/consul.html
+# https://www.nomadproject.io/docs/vault-integration/index.html
+# "bootstrap_expect": $VAR_EXPECT,
+echo "Writing nomad configuration..."
+cat >/root/cluster/tmp/nomad.conf << EOF
+[Unit]
+Description=nomad agent
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+Restart=on-failure
+EnvironmentFile=-/etc/sysconfig/nomad
+ExecStart=/usr/local/bin/nomad agent -config=/etc/systemd/system/nomad.d
+ExecReload=/bin/kill -HUP \$MAINPID
+KillSignal=SIGTERM
+User=$USERNAME
+Group=$GROUP
+
+[Install]
+WantedBy=multi-user.target
+EOF
+if test "$VAR_NOMAD_TYPE" = "master"; then
+	cat >/root/cluster/tmp/nomad.json << EOF
+{
+	"data_dir": "/opt/nomad/data",
+	"server": {
+		"enabled": true,
+		"bootstrap_expect": $VAR_NOMAD_EXPECT
+	},
+	"consul": {},
+	"vault": {
+		"enabled": true,
+		"address": "http://vault.service.consul:8200",
+		"create_from_role": "nomad-cluster",
+		"token": "$VAR_NOMAD_TOKEN"
+	},
+	"bind_addr": "$VAR_PRIVATE_IP",
+	"region": "$VAR_REGION"
+}
+EOF
+elif test "$VAR_NOMAD_TYPE" = "slave"; then
+	cat >/root/cluster/tmp/nomad.hcl << EOF
+{
+	"data_dir": "/opt/nomad/data",
+	"consul": {},
+	"vault": {
+		"enabled": true,
+		"address": "http://vault.service.consul:8200",
+		"create_from_role": "nomad-cluster",
+		"token": "$VAR_NOMAD_TOKEN"
+	},
+	"bind_addr": "$VAR_PRIVATE_IP",
+	"region": "$VAR_REGION"
+}
+EOF
+else
+	echo "!unknown nomad type!"
+	exit 1
+fi
+# if vault.service.consul does not work, change it to
+# http://127.0.0.1:8200
+
+echo "Installing service..."
+/root/cluster/scripts/install-service "$USERNAME" "$GROUP" "$SERVICE" "$VAR_NOMAD_URL" "$VAR_NOMAD_VERSION"
