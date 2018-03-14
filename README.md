@@ -125,14 +125,14 @@ dig @127.0.0.1 -p 8600 consul.service.consul SRV
 
 <!-- LICENSE/ -->
 
-<h2>License</h2>
+## License
 
 Unless stated otherwise all works are:
 
-<ul><li>Copyright &copy; 2018+ <a href="http://balupton.com">Benjamin Lupton</a></li>
+- Copyright &copy; 2018+ [Benjamin Lupton](https://balupton.com)
 
 and licensed under:
 
-<ul><li><a href="http://spdx.org/licenses/MIT.html">MIT License</a></li></ul>
+- [MIT License](http://spdx.org/licenses/MIT.html)
 
 <!-- /LICENSE -->
