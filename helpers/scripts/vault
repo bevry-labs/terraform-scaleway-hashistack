@@ -1,23 +1,26 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 set -ueE -o pipefail
+cd "$(dirname "$0")"
 
 # Locals
-SERVICE="vault"
-USERNAME="vaulty"
-GROUP="$USERNAME"
+service="vault"
+user="vault_user"
+group="$user"
 
 # Variables
-pushd /root/cluster/var
-VAR_VAULT_VERSION="$(tr -d '\n' < ./vault_version)"
-VAR_VAULT_URL="$(tr -d '\n' < ./vault_url)"
-VAR_PRIVATE_IP="$(tr -d '\n' < ./private_ip)"
-popd
+vault_version="$(tr -d '\n' < ../data/vault_version)"
+private_ip="$(tr -d '\n' < ../data/private_ip)"
+
+# Files
+temp="$(mktemp -d)"
+conf_file="$temp/$service.conf"
+json_file="$temp/$service.json"
 
 # Configuration of vault is completely automatic thanks to consul
 # https://www.vaultproject.io/docs/configuration/storage/consul.html
 # but we still need a configuration file apparently...
 echo "Writing vault configuration..."
-cat >/root/cluster/tmp/vault.conf << EOF
+cat > "$conf_file" <<EOF
 [Unit]
 Description=Vault Agent
 Requires=network-online.target
@@ -29,19 +32,19 @@ Environment=GOMAXPROCS=nproc
 ExecStart=/usr/local/bin/vault server -config=/etc/systemd/system/vault.d
 ExecReload=/bin/kill -HUP \$MAINPID
 KillSignal=SIGTERM
-User=$USERNAME
-Group=$GROUP
+User=${user}
+Group=${group}
 LimitMEMLOCK=infinity
 
 [Install]
 WantedBy=multi-user.target
 EOF
-cat >/root/cluster/tmp/vault.json << EOF
+cat > "$json_file" <<EOF
 {
 	"listener": {
 		"tcp": {
-			"address": "$VAR_PRIVATE_IP:8200",
-			"cluster_address": "$VAR_PRIVATE_IP:8201",
+			"address": "${private_ip}:8200",
+			"cluster_address": "${private_ip}:8201",
 			"tls_disable": 1
 		}
 	},
@@ -52,5 +55,10 @@ cat >/root/cluster/tmp/vault.json << EOF
 EOF
 
 echo "Installing service..."
-/root/cluster/scripts/install-service "$USERNAME" "$GROUP" "$SERVICE" "$VAR_VAULT_URL" "$VAR_VAULT_VERSION"
-sudo setcap cap_ipc_lock=+ep /usr/local/bin/vault
+./service_install "$service" "$user" "$group" "$vault_version" "$conf_file" "$json_file"
+
+# Clean
+function finish {
+	./shred "$temp"
+}
+trap finish EXIT

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+cd "$(dirname "$0")"
+
+# Variables
+public_ip="$(tr -d '\n' < ../data/public_ip)"
+consul_version="$(tr -d '\n' < ../data/consul_version)"
+vault_version="$(tr -d '\n' < ../data/vault_version)"
+nomad_version="$(tr -d '\n' < ../data/nomad_version)"
+
+# Fetch
+./service_download "consul" "$consul_version"
+./service_download "vault" "$vault_version"
+./service_download "nomad" "$nomad_version"
+
+# Known Hosts
+echo ""
+echo "adding the new host to known hosts"
+ssh-keygen -R "$public_ip"
+ssh-keyscan "$public_ip" >> "$HOME/.ssh/known_hosts"
+./shred "$HOME/.ssh/known_hosts.old"

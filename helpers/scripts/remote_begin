@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+cd "$(dirname "$0")"
+
+# Prepare
+mkdir -p ../data
+mkdir -p ../files
+mkdir -p ../outputs
+
+# Variables
+type="$(tr -d '\n' < ../data/type)"
+consul_type="$(tr -d '\n' < ../data/consul_type)"
+vault_type="$(tr -d '\n' < ../data/vault_type)"
+docker_type="$(tr -d '\n' < ../data/docker_type)"
+nomad_type="$(tr -d '\n' < ../data/nomad_type)"
+
+echo ""
+echo "Installing dependencies..."
+sudo yum update -y
+sudo yum install -y unzip
+# sudo yum install -y net-tools # ifconfig
+# sudo yum install -y bind-tools # dig
+
+echo ""
+echo "Configuring ports..."
+# https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/security_guide/sec-using_firewalls
+while IFS=',' read -r port; do
+	echo "configuring local $port/tcp"
+	sudo firewall-cmd --zone=internal --add-port="$port/tcp" --permanent
+done <../data/ports_local_tcp
+while IFS=',' read -r port; do
+	echo "configuring local $port/udp"
+	sudo firewall-cmd --zone=internal --add-port="$port/udp" --permanent
+done <../data/ports_local_udp
+sudo firewall-cmd --reload
+
+
+echo ""
+echo "Configuring services as $type..."
+
+echo ""
+echo "Configuring consul as $consul_type..."
+if test -n "$consul_type"; then
+	./consul
+fi
+
+echo ""
+echo "Configuring vault as $vault_type..."
+if test -n "$vault_type"; then
+	./vault
+fi
+if test "$vault_type" = "origin"; then
+	./vault_init
+fi
+
+echo ""
+echo "Configuring docker as $docker_type..."
+if test -n "$docker_type"; then
+	./docker
+fi
+
+
+echo ""
+echo "Configuring nomad as $nomad_type..."
+if test -n "$nomad_type"; then
+	./nomad
+fi

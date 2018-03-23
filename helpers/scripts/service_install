@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+cd "$(dirname "$0")"
+
+function get_version {
+	set +o pipefail
+	"$1" -v | grep --color=never -Eo '[0-9]+\.[0-9]+\.[0-9]+'
+	set -o pipefail
+}
+function user_exists {
+  local user="$1"
+  id "$user" >/dev/null 2>&1
+}
+
+# Arguments
+if test -z "$6"; then
+	echo 'not enough arguments'
+	exit 1
+fi
+service="$1"
+user="$2"
+group="$3"
+expected_version="$4"
+conf_file="$5"
+json_file="$6"
+
+# Locals
+temp="$(mktemp -d)"
+
+echo ""
+echo "Installing $service..."
+
+echo ""
+echo "Unzipping $service..."
+unzip -d "$temp" "../files/$service.zip"
+chmod +x "$temp/$service"
+
+echo ""
+echo "Checking $service version..."
+version="$(get_version "$temp/$service")"
+if test "$version" != "$expected_version"; then
+	echo "version was not as expected"
+	echo "actual version: $version"
+	echo "desired version: $expected_version"
+	exit 1
+fi
+
+echo ""
+echo "Moving $service into path..."
+sudo mv "$temp/$service" "/usr/local/bin/$service"
+
+echo ""
+echo "Detecting $service user $user..."
+if ! user_exists "$user"; then
+	echo "Adding $service user $user..."
+	sudo useradd "$user"
+fi
+
+echo ""
+echo "Setting $service executable permissions..."
+# make the executable only runnable by the user
+sudo chown "$user:$group" "/usr/local/bin/$service"
+sudo chmod 0740 "/usr/local/bin/$service"
+
+echo ""
+echo "Adjusting $service executable..."
+# ensure sensitive data is written by the system
+if test "$service" = "vault"; then
+	echo "Adjusting $service executable for vault..."
+	sudo setcap cap_ipc_lock=+ep /usr/local/bin/vault
+fi
+
+echo ""
+echo "Configuring data for $service..."
+# data configuration
+rm -Rf "/opt/$service"
+mkdir -p "/opt/$service/data"
+sudo chmod -R 0740 "/opt/$service"
+sudo chown -R "$user:$group" "/opt/$service"
+
+echo ""
+echo "Configuring service configuration for $service..."
+# service configuration
+sudo rm -Rf "/etc/systemd/system/$service.d"
+sudo mkdir -p "/etc/systemd/system/$service.d"
+sudo mv "$json_file" "/etc/systemd/system/$service.d/$service.json"
+sudo chmod 0640 "/etc/systemd/system/$service.d/$service.json"
+sudo chown "$user:$group" "/etc/systemd/system/$service.d/$service.json"
+
+echo ""
+echo "Installing service for $service..."
+# service specification
+sudo rm -Rf "/etc/systemd/system/$service.service"
+sudo mv "$conf_file" "/etc/systemd/system/$service.service"
+sudo chmod 0640 "/etc/systemd/system/$service.service"
+sudo chown "$user:$group" "/etc/systemd/system/$service.service"
+
+echo ""
+echo "Starting $service..."
+sudo systemctl enable "$service.service"
+sudo systemctl start "$service"
+sudo systemctl status "$service"
+# journalctl -u "$service.service"
+# manual start: sudo -u $user /usr/local/bin/$service agent -config=/etc/systemd/system/$service.d
+
+# Clean
+function finish {
+	./shred "$temp"
+	./shred "../files/$service.zip"
+}
+trap finish EXIT

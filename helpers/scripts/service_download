@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+cd "$(dirname "$0")"
+
+# Functions
+function fetch_latest_version {
+	curl -s "https://releases.hashicorp.com/$1/index.json" \
+	| jq -r '.versions | keys[]' \
+	| grep -v "beta" | grep -v "rc" | grep -v "alpha" \
+	| sort -V | tail -n1
+}
+function download {
+	curl -L "$1" -o "$2"
+}
+
+# Locals
+service="$1"
+version="$2"
+platform="linux_arm64"
+
+# Files
+temp="$(mktemp -d)"
+
+# Check latest version
+latest_version="$(fetch_latest_version "$service")"
+if test "$latest_version" = "$version"; then
+	echo "$service is configured for the latest version already"
+else
+	echo "$service is not configured for the latest version"
+	echo "changelog: https://github.com/hashicorp/$service/blob/master/CHANGELOG.md"
+fi
+echo "latest version:  $latest_version"
+echo "current version: $version"
+
+# Download ZIP
+zip_filename="${service}_${version}_${platform}.zip"
+zip_url="https://releases.hashicorp.com/${service}/${version}/${service}_${version}_${platform}.zip"
+zip_file="$temp/$service.zip"
+download "$zip_url" "$zip_file"
+
+# Download Signature
+sig_url="https://releases.hashicorp.com/${service}/${version}/${service}_${version}_SHA256SUMS.sig"
+sig_file="$temp/$service.sig"
+download "$sig_url" "$sig_file"
+
+# Download Hashes
+sha_url="https://releases.hashicorp.com/${service}/${version}/${service}_${version}_SHA256SUMS"
+sha_file="$temp/$service.sha"
+download "$sha_url" "$sha_file"
+
+# Verify Signature
+keybase pgp verify -d "$sig_file" -S hashicorp -i "$sha_file"
+
+# Verify Zip
+sha_expected="$(grep "$zip_filename" < "$sha_file" | sed 's/ .*//')"
+sha_actual="$(shasum -a 256 "$zip_file" | sed 's/ .*//')"
+if test "$sha_expected" = "$sha_actual"; then
+	echo "zip file hash matched"
+else
+	echo "zip file hash did not match!"
+	echo "expected hash: $sha_expected"
+	echo "actual hash:   $sha_actual"
+	exit 1
+fi
+
+# Move zip to file
+mv "$zip_file" "../files/$service.zip"
+
+# Clean
+function finish {
+	./shred "$temp"
+}
+trap finish EXIT

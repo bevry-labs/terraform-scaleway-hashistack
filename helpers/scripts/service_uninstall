@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+cd "$(dirname "$0")"
+
+service="$1"
+
+if test "$service" = "vault"; then
+	vault_type="$(tr -d '\n' < ../data/vault_type)"
+	if test "$vault_type" = "origin"; then
+		echo "erasing previous origin vault"
+		systemctl stop vault
+		consul kv delete --recurse vault
+	fi
+else
+	echo "cannot yet uninstall the service $1"
+	exit 1
+fi

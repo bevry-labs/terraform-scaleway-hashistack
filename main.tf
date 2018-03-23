@@ -4,76 +4,31 @@
 # https://github.com/hashicorp/terraform-aws-consul/blob/master/modules/install-consul/install-consul
 # https://www.consul.io/docs/agent/options.html?#ports-used
 # https://www.consul.io/docs/agent/options.html#scaleway
+# https://www.terraform.io/docs/provisioners/connection.html
+# https://github.com/hashicorp/nomad/tree/master/terraform
+# https://github.com/hashicorp/consul/blob/master/terraform/digitalocean/consul.tf
+# https://github.com/hashicorp/consul/blob/master/terraform/shared/scripts/install.sh
+# https://github.com/hashicorp/consul/blob/master/terraform/shared/scripts/rhel_consul.service
 
-# Variables
-variable "ssh_private_key" {
-  type = "string"
-}
-
-variable "type" {
-  type = "string" # origin, master, slave
-}
-
-variable "count" {
-  type    = "string"
-  default = 1
-}
-
-variable "join" {
-  type    = "string"
-  default = ""
-}
-
-variable "region" {
-  type = "string"
-}
-
-variable "image" {
-  type = "string"
-}
-
-variable "bootscript" {
-  type    = "string"
-  default = ""
-}
-
-variable "consul_expect" {
-  type    = "string"
-  default = 0
-}
-
-variable "nomad_expect" {
-  type    = "string"
-  default = 0
-}
-
-variable "nomad_token" {
-  type    = "string"
-  default = ""
-}
-
-# Config
 # https://www.consul.io/docs/agent/options.html#ports-used
 # https://stackoverflow.com/a/43404044/130638
 # https://forums.docker.com/t/docker-ports-in-aws-ec2/15799
 # web_ports = [443]
 locals {
+  is_origin              = "${var.type == "origin" ? true : false}"
   loopback_ip            = "127.0.0.1"
   docker_type            = "${var.type == "slave" ? "present" : ""}"
-  consul_version         = "1.0.3"
-  consul_url             = "https://releases.hashicorp.com/consul/1.0.3/consul_1.0.3_linux_arm64.zip"
+  consul_version         = "1.0.6"
   consul_type            = "${var.type}"
   consul_ports_local     = [8301, 8302, 8600]
   consul_ports_local_tcp = [8300, 8500]
   consul_ports_local_udp = []
   nomad_version          = "0.7.1"
-  nomad_url              = "https://releases.hashicorp.com/nomad/0.7.1/nomad_0.7.1_linux_arm64.zip"
   nomad_type             = "${var.type == "origin" ? "" : var.type}"
   nomad_ports_local      = []
   nomad_ports_local_tcp  = "${compact(split(" ", local.nomad_type == "" ? "" : "4646 4647 4648"))}"
   nomad_ports_local_udp  = []
-  vault_version          = "0.9.3"
-  vault_url              = "https://releases.hashicorp.com/vault/0.9.3/vault_0.9.3_linux_arm64.zip"
+  vault_version          = "0.9.6"
   vault_type             = "${var.type == "slave" ? "" : var.type}"
   vault_ports_local      = []
   vault_ports_local_tcp  = "${compact(split(" ", local.vault_type == "" ? "" : "8200"))}"
@@ -82,16 +37,16 @@ locals {
   ports_local_tcp        = "${distinct(concat(local.ports_local, local.consul_ports_local_tcp, local.nomad_ports_local_tcp, local.vault_ports_local_tcp))}"
   ports_local_udp        = "${distinct(concat(local.ports_local, local.consul_ports_local_udp, local.nomad_ports_local_udp, local.vault_ports_local_udp))}"
 
-  tags_ = [
+  tags_with_empties = [
     "cluster",
-    "cluster-${var.type}",
-    "${local.vault_type != "" ? "vault-${local.vault_type}" : ""}",
-    "${local.consul_type != "" ? "consul-${local.consul_type}" : ""}",
-    "${local.nomad_type != "" ? "nomad-${local.nomad_type}" : ""}",
-    "${local.docker_type != "" ? "docker-${local.docker_type}" : ""}",
+    "cluster_${var.type}",
+    "${local.vault_type != "" ? "vault_${local.vault_type}" : ""}",
+    "${local.consul_type != "" ? "consul_${local.consul_type}" : ""}",
+    "${local.nomad_type != "" ? "nomad_${local.nomad_type}" : ""}",
+    "${local.docker_type != "" ? "docker_${local.docker_type}" : ""}",
   ]
 
-  tags = "${compact(local.tags_)}"
+  tags = "${compact(local.tags_with_empties)}"
 }
 
 # security group
@@ -168,51 +123,34 @@ resource "scaleway_server" "server" {
   tags                = "${local.tags}"
 
   provisioner "local-exec" {
-    command = "${path.module}/helpers/scripts/local-begin ${var.ssh_key_path} ${var.var_dir_path} ${self.public_ip} ${self.private_ip}"
+    command = "chmod +x ${path.module}/helpers/scripts/*"
   }
 
-  # https://www.terraform.io/docs/provisioners/connection.html
+  provisioner "local-exec" {
+    command = "${path.module}/helpers/scripts/local_clean"
+  }
+
+  provisioner "local-exec" {
+    command = "${path.module}/helpers/scripts/config_write output_path=${var.output_path} private_key_path=${var.private_key_path} ports_local_tcp=${join(",", local.ports_local_tcp)} ports_local_udp=${join(",", local.ports_local_udp)} consul_version=${local.consul_version} consul_type=${local.consul_type} consul_expect=${var.consul_expect} nomad_version=${local.nomad_version} nomad_type=${local.nomad_type} nomad_expect=${var.nomad_expect} nomad_token=${var.nomad_token} vault_version=${local.vault_version} vault_type=${local.vault_type} docker_type=${local.docker_type} name=${var.region}_${var.type}_${count.index} join=${var.join} loopback_ip=${local.loopback_ip} type=${var.type} region=${var.region} private_ip=${self.private_ip} public_ip=${self.public_ip} "
+  }
+
+  provisioner "local-exec" {
+    command = "${path.module}/helpers/scripts/local_begin"
+  }
+
   connection {
     type        = "ssh"
     user        = "root"
     timeout     = "180s"
-    private_key = "${var.ssh_private_key}"
+    private_key = "${file("${var.private_key_path}")}"
     agent       = false
   }
 
-  # https://www.consul.io/docs/agent/options.html#scaleway
-  # https://github.com/hashicorp/nomad/tree/master/terraform
-  # https://github.com/hashicorp/consul/blob/master/terraform/digitalocean/consul.tf
-  # https://github.com/hashicorp/consul/blob/master/terraform/shared/scripts/install.sh
-  # https://github.com/hashicorp/consul/blob/master/terraform/shared/scripts/rhel_consul.service
   provisioner "remote-exec" {
     inline = [
       "sysctl kernel.hostname=${var.region}_${var.type}_${count.index}",
       "rm -Rf /root/cluster",
-      "mkdir -p /root/cluster/tmp",
-      "mkdir -p /root/cluster/var",
-      "echo -n '${join("\n", local.ports_local_tcp)}' > /root/cluster/var/ports_local_tcp",
-      "echo -n '${join("\n", local.ports_local_udp)}' > /root/cluster/var/ports_local_udp",
-      "echo -n '${local.consul_version}' > /root/cluster/var/consul_version",
-      "echo -n '${local.consul_url}' > /root/cluster/var/consul_url",
-      "echo -n '${local.consul_type}' > /root/cluster/var/consul_type",
-      "echo -n '${var.consul_expect}' > /root/cluster/var/consul_expect",
-      "echo -n '${local.nomad_version}' > /root/cluster/var/nomad_version",
-      "echo -n '${local.nomad_url}' > /root/cluster/var/nomad_url",
-      "echo -n '${local.nomad_type}' > /root/cluster/var/nomad_type",
-      "echo -n '${var.nomad_expect}' > /root/cluster/var/nomad_expect",
-      "echo -n '${var.nomad_token}' > /root/cluster/var/nomad_token",
-      "echo -n '${local.vault_version}' > /root/cluster/var/vault_version",
-      "echo -n '${local.vault_url}' > /root/cluster/var/vault_url",
-      "echo -n '${local.vault_type}' > /root/cluster/var/vault_type",
-      "echo -n '${local.docker_type}' > /root/cluster/var/docker_type",
-      "echo -n '${var.region}_${var.type}_${count.index}' > /root/cluster/var/name",
-      "echo -n '${var.join}' > /root/cluster/var/join",
-      "echo -n '${self.private_ip}' > /root/cluster/var/private_ip",
-      "echo -n '${self.public_ip}' > /root/cluster/var/public_ip",
-      "echo -n '${local.loopback_ip}' > /root/cluster/var/loopback_ip",
-      "echo -n '${var.type}' > /root/cluster/var/type",
-      "echo -n '${var.region}' > /root/cluster/var/region",
+      "mkdir /root/cluster",
     ]
   }
 
@@ -224,26 +162,17 @@ resource "scaleway_server" "server" {
   provisioner "remote-exec" {
     inline = [
       "chmod +x /root/cluster/scripts/*",
-      "/root/cluster/scripts/setup",
+      "/root/cluster/scripts/remote_begin",
     ]
   }
 
   provisioner "local-exec" {
-    command = "${path.module}/helpers/scripts/local-end ${var.ssh_key_path} ${var.var_dir_path}  ${self.public_ip} ${self.private_ip}"
+    command = "${path.module}/helpers/scripts/local_end"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "/root/cluster/scripts/cleanup",
+      "/root/cluster/scripts/remote_end",
     ]
   }
-}
-
-# Outputs
-output "private_ip" {
-  value = "${scaleway_server.server.0.private_ip}"
-}
-
-output "public_ip" {
-  value = "${scaleway_server.server.0.public_ip}"
 }

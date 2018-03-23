@@ -1,5 +1,6 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 set -ueE -o pipefail
+cd "$(dirname "$0")"
 
 echo "Installing Docker..."
 sudo yum install -y docker

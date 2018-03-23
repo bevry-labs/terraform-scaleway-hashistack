@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+
+if type shred &> /dev/null; then
+	exec="shred"
+	args="-uv"
+elif type "gshred" &> /dev/null; then
+	exec="gshred"
+	args="-uv"
+else
+	exec="rm"
+	args="-Rfv"
+fi
+
+if test -d "$1"; then
+	find "$1" -type f -exec "$exec" "$args" {} \;
+	rm -Rfv "$1"
+elif test -f "$1"; then
+	"$exec" "$args" "$1"
+else
+	echo "no need to shred the path, as it does not seem to exist: $1"
+fi

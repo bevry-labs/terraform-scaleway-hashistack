@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+cd "$(dirname "$0")"
+
+# Functions
+function download {
+	curl -s -L "$1" -o "$2"
+}
+
+# Files
+temp="$(mktemp -d)"
+policy_file="$temp/nomad-server-policy.hcl"
+role_file="$temp/nomad-cluster-role.json"
+
+# Variables
+private_ip="$(tr -d '\n' < ../data/private_ip)"
+
+# Configure vault CLI to access the vault server
+export VAULT_ADDR="http://${private_ip}:8200"
+
+# Initialise the vault
+echo "Initialising the vault..."
+vault operator init | sed 's/\x1b\[[0-9;]*m//g' > ../outputs/vault_init
+unseal_key_1="$(grep 'Unseal Key 1' < ../outputs/vault_init | sed -E 's/.+: //')"
+unseal_key_2="$(grep 'Unseal Key 2' < ../outputs/vault_init | sed -E 's/.+: //')"
+unseal_key_3="$(grep 'Unseal Key 3' < ../outputs/vault_init | sed -E 's/.+: //')"
+root_token="$(grep 'Initial Root Token' < ../outputs/vault_init | sed -E 's/.+: //')"
+
+# Unseal the vault
+echo ""
+echo -e "Unsealing the vault..."
+vault operator unseal "$unseal_key_1"
+vault operator unseal "$unseal_key_2"
+vault operator unseal "$unseal_key_3"
+
+# Create the cluster token
+echo ""
+echo -e "Creating the cluster token..."
+env VAULT_TOKEN="$root_token" vault token create -display-name=cluster | sed 's/\x1b\[[0-9;]*m//g' > ../outputs/vault_cluster
+cluster_token="$(grep 'token ' < ../outputs/vault_cluster | sed -E 's/.+ +//')"
+
+# https://www.nomadproject.io/docs/vault-integration/index.html
+echo ""
+echo -e "Setup vault permissions for nomad..."
+download "https://nomadproject.io/data/vault/nomad-server-policy.hcl" "$policy_file"
+download "https://nomadproject.io/data/vault/nomad-cluster-role.json" "$role_file"
+env VAULT_TOKEN="$cluster_token" vault policy write nomad-server "$policy_file"
+env VAULT_TOKEN="$cluster_token" vault write /auth/token/roles/nomad-cluster @"$role_file"
+env VAULT_TOKEN="$cluster_token" vault token create -policy nomad-server -period 72h -orphan | sed 's/\x1b\[[0-9;]*m//g' > ../outputs/vault_nomad
+grep 'token ' < ../outputs/vault_nomad | sed -E 's/.+ +//' > ../outputs/nomad_token
+
+# Clean
+function finish {
+	./shred "$temp"
+}
+trap finish EXIT

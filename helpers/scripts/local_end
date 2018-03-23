@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+cd "$(dirname "$0")"
+
+# Locals
+remote_path="/root/cluster"
+
+# Variables
+output_path="$(tr -d '\n' < ../data/output_path)"
+private_key_path="$(tr -d '\n' < ../data/private_key_path)"
+public_ip="$(tr -d '\n' < ../data/public_ip)"
+vault_type="$(tr -d '\n' < ../data/vault_type)"
+
+echo ""
+echo "to access the consul web ui, and ssh into the server use the following:"
+echo "ssh -L 127.0.0.1:8500:127.0.0.1:8500 root@$public_ip"
+echo "open http://127.0.0.1:8500"
+
+if test "$vault_type" = "origin"; then
+	echo ""
+	echo "copying outputs and extracting values to $output_path"
+	scp -i "$private_key_path" "root@$public_ip:$remote_path/outputs/*" "$output_path"
+	grep 'Unseal Key 1' < "$output_path/vault_init" | sed -E 's/.+: //' > "$output_path/unseal_key_01"
+	grep 'Unseal Key 2' < "$output_path/vault_init" | sed -E 's/.+: //' > "$output_path/unseal_key_02"
+	grep 'Unseal Key 3' < "$output_path/vault_init" | sed -E 's/.+: //' > "$output_path/unseal_key_03"
+	grep 'Unseal Key 4' < "$output_path/vault_init" | sed -E 's/.+: //' > "$output_path/unseal_key_04"
+	grep 'Unseal Key 5' < "$output_path/vault_init" | sed -E 's/.+: //' > "$output_path/unseal_key_05"
+	grep 'Initial Root Token' < "$output_path/vault_init" | sed -E 's/.+: //' > "$output_path/root_token"
+	grep 'token ' < "$output_path/vault_cluster" | sed -E 's/.+ +//' > "$output_path/cluster_token"
+	grep 'token ' < "$output_path/vault_nomad" | sed -E 's/.+ +//' > "$output_path/nomad_token"
+fi

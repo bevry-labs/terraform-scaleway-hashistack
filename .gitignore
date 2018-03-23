@@ -39,4 +39,6 @@ docs/
 # =====================================
 # CUSTOM
 
-# None
+helpers/data
+helpers/files
+helpers/outputs

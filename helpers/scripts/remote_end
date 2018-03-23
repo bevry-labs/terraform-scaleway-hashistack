@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+cd "$(dirname "$0")"
+
+./shred /root/cluster

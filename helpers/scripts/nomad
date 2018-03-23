@@ -1,29 +1,32 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 set -ueE -o pipefail
+cd "$(dirname "$0")"
 
 # Locals
-SERVICE="nomad"
-USERNAME="nomady"
-GROUP="$USERNAME"
+service="nomad"
+user="nomad_user"
+group="$user"
 
 # Variables
-pushd /root/cluster/var
-VAR_NOMAD_VERSION="$(tr -d '\n' < ./nomad_version)"
-VAR_NOMAD_URL="$(tr -d '\n' < ./nomad_url)"
-VAR_NOMAD_TYPE="$(tr -d '\n' < ./nomad_type)"
-VAR_NOMAD_TOKEN="$(tr -d '\n' < ./nomad_token)"
-VAR_NOMAD_EXPECT="$(tr -d '\n' < ./nomad_expect)"
-VAR_PRIVATE_IP="$(tr -d '\n' < ./private_ip)"
-VAR_REGION="$(tr -d '\n' < ./region)"
-popd
+nomad_version="$(tr -d '\n' < ../data/nomad_version)"
+nomad_type="$(tr -d '\n' < ../data/nomad_type)"
+nomad_token="$(tr -d '\n' < ../data/nomad_token)"
+nomad_expect="$(tr -d '\n' < ../data/nomad_expect)"
+private_ip="$(tr -d '\n' < ../data/private_ip)"
+region="$(tr -d '\n' < ../data/region)"
+
+# Files
+temp="$(mktemp -d)"
+conf_file="$temp/$service.conf"
+json_file="$temp/$service.json"
 
 # https://www.nomadproject.io/docs/agent/configuration/index.html
 # https://www.nomadproject.io/guides/cluster/automatic.html
 # https://www.nomadproject.io/docs/agent/configuration/consul.html
 # https://www.nomadproject.io/docs/vault-integration/index.html
-# "bootstrap_expect": $VAR_EXPECT,
+# "bootstrap_expect": $nomad_expect,
 echo "Writing nomad configuration..."
-cat >/root/cluster/tmp/nomad.conf << EOF
+cat > "$conf_file" <<EOF
 [Unit]
 Description=nomad agent
 Requires=network-online.target
@@ -35,33 +38,33 @@ EnvironmentFile=-/etc/sysconfig/nomad
 ExecStart=/usr/local/bin/nomad agent -config=/etc/systemd/system/nomad.d
 ExecReload=/bin/kill -HUP \$MAINPID
 KillSignal=SIGTERM
-User=$USERNAME
-Group=$GROUP
+User=${user}
+Group=${group}
 
 [Install]
 WantedBy=multi-user.target
 EOF
-if test "$VAR_NOMAD_TYPE" = "master"; then
-	cat >/root/cluster/tmp/nomad.json << EOF
+if test "$nomad_type" = "master"; then
+	cat > "$json_file" <<EOF
 {
 	"data_dir": "/opt/nomad/data",
 	"server": {
 		"enabled": true,
-		"bootstrap_expect": $VAR_NOMAD_EXPECT
+		"bootstrap_expect": ${nomad_expect}
 	},
 	"consul": {},
 	"vault": {
 		"enabled": true,
 		"address": "http://vault.service.consul:8200",
 		"create_from_role": "nomad-cluster",
-		"token": "$VAR_NOMAD_TOKEN"
+		"token": "${nomad_token}"
 	},
-	"bind_addr": "$VAR_PRIVATE_IP",
-	"region": "$VAR_REGION"
+	"bind_addr": "${private_ip}",
+	"region": "${region}"
 }
 EOF
-elif test "$VAR_NOMAD_TYPE" = "slave"; then
-	cat >/root/cluster/tmp/nomad.hcl << EOF
+elif test "$nomad_type" = "slave"; then
+	cat > "$json_file" <<EOF
 {
 	"data_dir": "/opt/nomad/data",
 	"consul": {},
@@ -69,10 +72,10 @@ elif test "$VAR_NOMAD_TYPE" = "slave"; then
 		"enabled": true,
 		"address": "http://vault.service.consul:8200",
 		"create_from_role": "nomad-cluster",
-		"token": "$VAR_NOMAD_TOKEN"
+		"token": "${nomad_token}"
 	},
-	"bind_addr": "$VAR_PRIVATE_IP",
-	"region": "$VAR_REGION"
+	"bind_addr": "${private_ip}",
+	"region": "${region}"
 }
 EOF
 else
@@ -83,4 +86,10 @@ fi
 # http://127.0.0.1:8200
 
 echo "Installing service..."
-/root/cluster/scripts/install-service "$USERNAME" "$GROUP" "$SERVICE" "$VAR_NOMAD_URL" "$VAR_NOMAD_VERSION"
+./service_install "$service" "$user" "$group" "$nomad_version" "$conf_file" "$json_file"
+
+# Clean
+function finish {
+	./shred "$temp"
+}
+trap finish EXIT

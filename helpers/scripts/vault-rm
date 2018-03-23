@@ -1,9 +1,0 @@
-#!/usr/bin/bash
-set -ueE -o pipefail
-
-VAR_VAULT_TYPE="$(tr -d '\n' < /root/cluster/var/vault_type)"
-if test "$VAR_VAULT_TYPE" == "origin"; then
-	echo "erasing previous origin vault"
-	systemctl stop vault
-	consul kv delete --recurse vault
-fi

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+cd "$(dirname "$0")"
+
+mkdir -p "../data"
+
+for arg in "$@"; do
+	value="${arg#*=}"
+	key="${arg%=*}"
+	echo -n "$value" > "../data/$key"
+done
