@@ -18,7 +18,7 @@ locals {
   is_origin              = "${var.type == "origin" ? true : false}"
   loopback_ip            = "127.0.0.1"
   docker_type            = "${var.type == "slave" ? "present" : ""}"
-  consul_version         = "1.0.6"
+  consul_version         = "1.0.7"
   consul_type            = "${var.type}"
   consul_ports_local     = [8301, 8302, 8600]
   consul_ports_local_tcp = [8300, 8500]
