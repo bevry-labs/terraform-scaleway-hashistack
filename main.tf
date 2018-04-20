@@ -23,7 +23,7 @@ locals {
   consul_ports_local     = [8301, 8302, 8600]
   consul_ports_local_tcp = [8300, 8500]
   consul_ports_local_udp = []
-  nomad_version          = "0.7.1"
+  nomad_version          = "0.8.1"
   nomad_type             = "${var.type == "origin" ? "" : var.type}"
   nomad_ports_local      = []
   nomad_ports_local_tcp  = "${compact(split(" ", local.nomad_type == "" ? "" : "4646 4647 4648"))}"
