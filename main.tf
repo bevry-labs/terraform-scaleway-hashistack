@@ -28,7 +28,7 @@ locals {
   nomad_ports_local      = []
   nomad_ports_local_tcp  = "${compact(split(" ", local.nomad_type == "" ? "" : "4646 4647 4648"))}"
   nomad_ports_local_udp  = []
-  vault_version          = "0.9.6"
+  vault_version          = "0.10.0"
   vault_type             = "${var.type == "slave" ? "" : var.type}"
   vault_ports_local      = []
   vault_ports_local_tcp  = "${compact(split(" ", local.vault_type == "" ? "" : "8200"))}"
