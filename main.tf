@@ -52,7 +52,7 @@ locals {
 # security group
 resource "scaleway_security_group" "cluster" {
   name        = "${var.region}_${var.type}"
-  description = "terraform created security group"
+  description = "${var.type} cluster security group"
 }
 
 resource "scaleway_security_group_rule" "accept-local-inbound-tcp" {
