@@ -3,10 +3,10 @@ set -ueE -o pipefail
 cd "$(dirname "$0")"
 
 # Variables
-public_ip="$(tr -d '\n' < ../data/public_ip)"
-consul_version="$(tr -d '\n' < ../data/consul_version)"
-vault_version="$(tr -d '\n' < ../data/vault_version)"
-nomad_version="$(tr -d '\n' < ../data/nomad_version)"
+public_ip="$(cat ../data/public_ip)"
+consul_version="$(cat ../data/consul_version)"
+vault_version="$(cat ../data/vault_version)"
+nomad_version="$(cat ../data/nomad_version)"
 
 # Fetch
 ./service_download "consul" "$consul_version"

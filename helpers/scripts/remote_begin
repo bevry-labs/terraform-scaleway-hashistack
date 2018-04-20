@@ -8,11 +8,11 @@ mkdir -p ../files
 mkdir -p ../outputs
 
 # Variables
-type="$(tr -d '\n' < ../data/type)"
-consul_type="$(tr -d '\n' < ../data/consul_type)"
-vault_type="$(tr -d '\n' < ../data/vault_type)"
-docker_type="$(tr -d '\n' < ../data/docker_type)"
-nomad_type="$(tr -d '\n' < ../data/nomad_type)"
+type="$(cat ../data/type)"
+consul_type="$(cat ../data/consul_type)"
+vault_type="$(cat ../data/vault_type)"
+docker_type="$(cat ../data/docker_type)"
+nomad_type="$(cat ../data/nomad_type)"
 
 echo ""
 echo "Installing dependencies..."

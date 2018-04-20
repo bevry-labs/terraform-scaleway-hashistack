@@ -8,8 +8,8 @@ user="vault_user"
 group="$user"
 
 # Variables
-vault_version="$(tr -d '\n' < ../data/vault_version)"
-private_ip="$(tr -d '\n' < ../data/private_ip)"
+vault_version="$(cat ../data/vault_version)"
+private_ip="$(cat ../data/private_ip)"
 
 # Files
 temp="$(mktemp -d)"

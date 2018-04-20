@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 service="$1"
 
 if test "$service" = "vault"; then
-	vault_type="$(tr -d '\n' < ../data/vault_type)"
+	vault_type="$(cat ../data/vault_type)"
 	if test "$vault_type" = "origin"; then
 		echo "erasing previous origin vault"
 		systemctl stop vault

@@ -6,10 +6,10 @@ cd "$(dirname "$0")"
 remote_path="/root/cluster"
 
 # Variables
-output_path="$(tr -d '\n' < ../data/output_path)"
-private_key_path="$(tr -d '\n' < ../data/private_key_path)"
-public_ip="$(tr -d '\n' < ../data/public_ip)"
-vault_type="$(tr -d '\n' < ../data/vault_type)"
+output_path="$(cat ../data/output_path)"
+private_key_path="$(cat ../data/private_key_path)"
+public_ip="$(cat ../data/public_ip)"
+vault_type="$(cat ../data/vault_type)"
 
 echo ""
 echo "to access the consul web ui, and ssh into the server use the following:"

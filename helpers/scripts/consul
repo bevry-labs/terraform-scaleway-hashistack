@@ -8,12 +8,12 @@ user="root"
 group="$user"
 
 # Variables
-consul_version="$(tr -d '\n' < ../data/consul_version)"
-consul_type="$(tr -d '\n' < ../data/consul_type)"
-consul_expect="$(tr -d '\n' < ../data/consul_expect)"
-private_ip="$(tr -d '\n' < ../data/private_ip)"
-loopback_ip="$(tr -d '\n' < ../data/loopback_ip)"
-join="$(tr -d '\n' < ../data/join)"
+consul_version="$(cat ../data/consul_version)"
+consul_type="$(cat ../data/consul_type)"
+consul_expect="$(cat ../data/consul_expect)"
+private_ip="$(cat ../data/private_ip)"
+loopback_ip="$(cat ../data/loopback_ip)"
+join="$(cat ../data/join)"
 
 # Files
 temp="$(mktemp -d)"
