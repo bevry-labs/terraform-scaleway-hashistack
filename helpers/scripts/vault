@@ -50,7 +50,8 @@ cat > "$json_file" <<EOF
 	},
 	"storage": {
 		"consul": {}
-	}
+	},
+	"ui": true
 }
 EOF
 
