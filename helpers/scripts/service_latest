@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+cd "$(dirname "$0")"
+
+# Locals
+service="$1"
+if test "$#" -eq 2; then
+	version="$2"
+else
+	version=false
+fi
+
+# Functions
+function fetch_latest_version {
+	curl -s "https://releases.hashicorp.com/$1/index.json" \
+	| jq -r '.versions | keys[]' \
+	| grep -v "beta" | grep -v "rc" | grep -v "alpha" \
+	| sort -V | tail -n1
+}
+
+# Fetch
+latest_version="$(fetch_latest_version "$service")"
+
+# Output
+if "$version"; then
+	echo "current version: $version"
+fi
+echo "latest version:  $latest_version"
+echo "changelog: https://github.com/hashicorp/$service/blob/master/CHANGELOG.md"
+
+# Check latest version
+if test "$version" = false; then
+	exit 0
+elif test "$latest_version" = "$version"; then
+	exit 0
+else
+	exit 1
+fi

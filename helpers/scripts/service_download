@@ -3,12 +3,6 @@ set -ueE -o pipefail
 cd "$(dirname "$0")"
 
 # Functions
-function fetch_latest_version {
-	curl -s "https://releases.hashicorp.com/$1/index.json" \
-	| jq -r '.versions | keys[]' \
-	| grep -v "beta" | grep -v "rc" | grep -v "alpha" \
-	| sort -V | tail -n1
-}
 function download {
 	curl -L "$1" -o "$2"
 }
@@ -21,16 +15,8 @@ platform="linux_arm64"
 # Files
 temp="$(mktemp -d)"
 
-# Check latest version
-latest_version="$(fetch_latest_version "$service")"
-if test "$latest_version" = "$version"; then
-	echo "$service is configured for the latest version already"
-else
-	echo "$service is not configured for the latest version"
-	echo "changelog: https://github.com/hashicorp/$service/blob/master/CHANGELOG.md"
-fi
-echo "latest version:  $latest_version"
-echo "current version: $version"
+# Check latest version, ignore return code
+./service_latest || true
 
 # Download ZIP
 zip_filename="${service}_${version}_${platform}.zip"
