@@ -5,5 +5,7 @@ cd "$(dirname "$0")"
 # Directories
 ./shred ../data
 ./shred ../files
+./shred ../certs
 mkdir -p ../data
 mkdir -p ../files
+mkdir -p ../certs

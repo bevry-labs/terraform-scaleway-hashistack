@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+cd "$(dirname "$0")"
+
+# Variables
+user="$(cat ../data/vault_user)"
+group="$(cat ../data/vault_group)"
+vault_type="$(cat ../data/vault_type)"
+private_ip="$(cat ../data/private_ip)"
+
+# Check vault server type
+if test "$vault_type" != "origin"; then
+	echo "Currently only support origin vault servers"
+	exit 1
+fi
+
+# Configuration of vault is completely automatic thanks to consul
+# https://www.vaultproject.io/docs/configuration/storage/consul.html
+# but we still need a configuration file apparently...
+echo "Writing vault configuration..."
+cat > ../data/vault.conf <<EOF
+[Unit]
+Description=Vault Agent
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+Restart=on-failure
+Environment=GOMAXPROCS=nproc
+ExecStart=/usr/local/bin/vault server -config=/etc/systemd/system/vault.d
+ExecReload=/bin/kill -HUP \$MAINPID
+KillSignal=SIGTERM
+User=${user}
+Group=${group}
+LimitMEMLOCK=infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# BASE
+cat > ../data/vault_base.json <<EOF
+{
+	"ui": true,
+	"listener": {
+		"tcp": {
+			"address": "${private_ip}:8200",
+			"cluster_address": "${private_ip}:8201",
+			"tls_disable": 1
+		}
+	},
+	"storage": {
+		"consul": {}
+	}
+}
+EOF
+
+# TLS
+cat > ../data/vault_tls.json <<EOF
+{
+	"listener": {
+		"tcp": {
+			"address": "${private_ip}:8200",
+			"cluster_address": "${private_ip}:8201",
+			"tls_cert_file": "/etc/certs/vault.crt",
+			"tls_key_file": "/etc/certs/vault.key",
+			"tls_client_ca_file": "/etc/certs/vault.ca",
+			"tls_require_and_verify_client_cert": true
+		}
+	},
+	"storage": {
+		"consul": {
+			"scheme": "https",
+			"tls_cert_file": "/etc/certs/consul.crt",
+			"tls_key_file": "/etc/certs/consul.key",
+			"tls_ca_file": "/etc/certs/consul.ca"
+		}
+	}
+}
+EOF
+
+# Merge
+if test -f /etc/certs/vault.key; then
+	echo 'Configuring Vault for TLS...'
+	./json_merge ../data/vault_base.json ../data/vault_tls.json > ../data/vault.json
+else
+	echo 'Configuring Vault without TLS...'
+	cp ../data/vault_base.json ../data/vault.json
+fi

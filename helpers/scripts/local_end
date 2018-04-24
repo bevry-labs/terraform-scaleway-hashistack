@@ -20,12 +20,4 @@ if test "$vault_type" = "origin"; then
 	echo ""
 	echo "copying outputs and extracting values to $output_path"
 	scp -i "$private_key_path" "root@$public_ip:$remote_path/outputs/*" "$output_path"
-	grep 'Unseal Key 1' < "$output_path/vault_init" | sed -E 's/.+: //' > "$output_path/unseal_key_01"
-	grep 'Unseal Key 2' < "$output_path/vault_init" | sed -E 's/.+: //' > "$output_path/unseal_key_02"
-	grep 'Unseal Key 3' < "$output_path/vault_init" | sed -E 's/.+: //' > "$output_path/unseal_key_03"
-	grep 'Unseal Key 4' < "$output_path/vault_init" | sed -E 's/.+: //' > "$output_path/unseal_key_04"
-	grep 'Unseal Key 5' < "$output_path/vault_init" | sed -E 's/.+: //' > "$output_path/unseal_key_05"
-	grep 'Initial Root Token' < "$output_path/vault_init" | sed -E 's/.+: //' > "$output_path/root_token"
-	grep 'token ' < "$output_path/vault_cluster" | sed -E 's/.+ +//' > "$output_path/cluster_token"
-	grep 'token ' < "$output_path/vault_nomad" | sed -E 's/.+ +//' > "$output_path/nomad_token"
 fi

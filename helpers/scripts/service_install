@@ -2,6 +2,15 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
+# Clean
+function finish {
+	./shred "$temp"
+	./shred "../files/$service.zip"
+	sudo systemctl status "$service"
+}
+trap finish EXIT
+
+# Functions
 function get_version {
 	set +o pipefail
 	"$1" -v | grep --color=never -Eo '[0-9]+\.[0-9]+\.[0-9]+'
@@ -13,16 +22,10 @@ function user_exists {
 }
 
 # Arguments
-if test -z "$6"; then
-	echo 'not enough arguments'
-	exit 1
-fi
 service="$1"
-user="$2"
-group="$3"
-expected_version="$4"
-conf_file="$5"
-json_file="$6"
+user="$(cat "../data/${service}_user")"
+group="$(cat "../data/${service}_group")"
+expected_version="$(cat "../data/${service}_version")"
 
 # Locals
 temp="$(mktemp -d)"
@@ -71,7 +74,7 @@ if test "$service" = "vault"; then
 fi
 
 echo ""
-echo "Configuring data for $service..."
+echo "Initialising data for $service..."
 # data configuration
 rm -Rf "/opt/$service"
 mkdir -p "/opt/$service/data"
@@ -79,33 +82,12 @@ sudo chmod -R 0740 "/opt/$service"
 sudo chown -R "$user:$group" "/opt/$service"
 
 echo ""
-echo "Configuring service configuration for $service..."
-# service configuration
-sudo rm -Rf "/etc/systemd/system/$service.d"
-sudo mkdir -p "/etc/systemd/system/$service.d"
-sudo mv "$json_file" "/etc/systemd/system/$service.d/$service.json"
-sudo chmod 0640 "/etc/systemd/system/$service.d/$service.json"
-sudo chown "$user:$group" "/etc/systemd/system/$service.d/$service.json"
-
-echo ""
-echo "Installing service for $service..."
-# service specification
-sudo rm -Rf "/etc/systemd/system/$service.service"
-sudo mv "$conf_file" "/etc/systemd/system/$service.service"
-sudo chmod 0640 "/etc/systemd/system/$service.service"
-sudo chown "$user:$group" "/etc/systemd/system/$service.service"
+echo "Configuring $service..."
+./service_configure "$service"
 
 echo ""
 echo "Starting $service..."
 sudo systemctl enable "$service.service"
 sudo systemctl start "$service"
-sudo systemctl status "$service"
 # journalctl -u "$service.service"
 # manual start: sudo -u $user /usr/local/bin/$service agent -config=/etc/systemd/system/$service.d
-
-# Clean
-function finish {
-	./shred "$temp"
-	./shred "../files/$service.zip"
-}
-trap finish EXIT

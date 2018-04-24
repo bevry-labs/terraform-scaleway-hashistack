@@ -10,6 +10,10 @@ variable "type" {
   type = "string" # origin, master, slave
 }
 
+variable "hostname" {
+  type = "string"
+}
+
 variable "count" {
   type    = "string"
   default = 1

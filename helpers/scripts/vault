@@ -2,64 +2,32 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-# Locals
-service="vault"
-user="vault_user"
-group="$user"
-
 # Variables
 vault_version="$(cat ../data/vault_version)"
-private_ip="$(cat ../data/private_ip)"
 
-# Files
-temp="$(mktemp -d)"
-conf_file="$temp/$service.conf"
-json_file="$temp/$service.json"
+# Install vault
+./service_download "vault" "$vault_version"
+./service_install vault
 
-# Configuration of vault is completely automatic thanks to consul
-# https://www.vaultproject.io/docs/configuration/storage/consul.html
-# but we still need a configuration file apparently...
-echo "Writing vault configuration..."
-cat > "$conf_file" <<EOF
-[Unit]
-Description=Vault Agent
-Requires=network-online.target
-After=network-online.target
+# Initialise vault, which initialises TLS, so reload everything
+./vault_init
 
-[Service]
-Restart=on-failure
-Environment=GOMAXPROCS=nproc
-ExecStart=/usr/local/bin/vault server -config=/etc/systemd/system/vault.d
-ExecReload=/bin/kill -HUP \$MAINPID
-KillSignal=SIGTERM
-User=${user}
-Group=${group}
-LimitMEMLOCK=infinity
+echo 'Restarting services for new vault configuration...'
+systemctl daemon-reload
+sudo systemctl stop vault
+sudo systemctl stop consul
 
-[Install]
-WantedBy=multi-user.target
-EOF
-cat > "$json_file" <<EOF
-{
-	"listener": {
-		"tcp": {
-			"address": "${private_ip}:8200",
-			"cluster_address": "${private_ip}:8201",
-			"tls_disable": 1
-		}
-	},
-	"storage": {
-		"consul": {}
-	},
-	"ui": true
-}
-EOF
+./service_configure consul
+./service_configure vault
 
-echo "Installing service..."
-./service_install "$service" "$user" "$group" "$vault_version" "$conf_file" "$json_file"
+systemctl daemon-reload
+sudo systemctl start consul
+sudo systemctl start vault
 
-# Clean
-function finish {
-	./shred "$temp"
-}
-trap finish EXIT
+sleep 5
+echo ''
+echo 'Checking Consul status...'
+sudo systemctl status consul
+echo ''
+echo 'Checking Vault status...'
+sudo systemctl status vault || /usr/local/bin/vault server -config=/etc/systemd/system/vault.d

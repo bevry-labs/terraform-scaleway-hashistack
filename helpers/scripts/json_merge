@@ -1,0 +1,14 @@
+#!/usr/bin/env node
+// jq -s '.[0] * .[1]' one.json two.json > out.json
+
+const fs = require('fs')
+
+const results = process.argv.slice(2).map(function (value) {
+	return JSON.parse(fs.readFileSync(value).toString())
+})
+
+const result = results.reduce(function (previousValue, currentValue) {
+	return Object.assign({}, previousValue, currentValue)
+})
+
+process.stdout.write(JSON.stringify(result, null, '  '))

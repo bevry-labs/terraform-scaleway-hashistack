@@ -2,10 +2,11 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-# Functions
-function download {
-	curl -L "$1" -o "$2"
+# Clean
+function finish {
+	./shred "$temp"
 }
+trap finish EXIT
 
 # Locals
 service="$1"
@@ -15,31 +16,37 @@ platform="linux_arm64"
 # Files
 temp="$(mktemp -d)"
 
-# Check latest version, ignore return code
-./service_latest || true
-
 # Download ZIP
 zip_filename="${service}_${version}_${platform}.zip"
 zip_url="https://releases.hashicorp.com/${service}/${version}/${service}_${version}_${platform}.zip"
 zip_file="$temp/$service.zip"
-download "$zip_url" "$zip_file"
+./download "$zip_url" "$zip_file"
 
 # Download Signature
 sig_url="https://releases.hashicorp.com/${service}/${version}/${service}_${version}_SHA256SUMS.sig"
 sig_file="$temp/$service.sig"
-download "$sig_url" "$sig_file"
+./download "$sig_url" "$sig_file"
 
 # Download Hashes
 sha_url="https://releases.hashicorp.com/${service}/${version}/${service}_${version}_SHA256SUMS"
 sha_file="$temp/$service.sha"
-download "$sha_url" "$sha_file"
+./download "$sha_url" "$sha_file"
 
-# Verify Signature
-keybase pgp verify -d "$sig_file" -S hashicorp -i "$sha_file"
+# Verify Signature with GPG
+key_url="https://keybase.io/hashicorp/pgp_keys.asc"
+key_file="$temp/hashicorp.asc"
+./download "$key_url" "$key_file"
+gpg --import "$key_file"
+gpg --verify "$sig_file" "$sha_file"
+
+# Verify Signature with Keybase
+if type keybase &> /dev/null; then
+	keybase pgp verify -d "$sig_file" -S hashicorp -i "$sha_file"
+fi
 
 # Verify Zip
 sha_expected="$(grep "$zip_filename" < "$sha_file" | sed 's/ .*//')"
-sha_actual="$(shasum -a 256 "$zip_file" | sed 's/ .*//')"
+sha_actual="$(./sigsum "$zip_file" | sed 's/ .*//')"
 if test "$sha_expected" = "$sha_actual"; then
 	echo "zip file hash matched"
 else
@@ -51,9 +58,3 @@ fi
 
 # Move zip to file
 mv "$zip_file" "../files/$service.zip"
-
-# Clean
-function finish {
-	./shred "$temp"
-}
-trap finish EXIT

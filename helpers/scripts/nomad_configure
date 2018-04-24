@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+cd "$(dirname "$0")"
+
+# Variables
+user="$(cat ../data/nomad_user)"
+group="$(cat ../data/nomad_group)"
+nomad_type="$(cat ../data/nomad_type)"
+nomad_token="$(cat ../data/nomad_token)"
+nomad_expect="$(cat ../data/nomad_expect)"
+nomad_gossip_key="$(cat ../data/nomad_gossip_key)"
+private_ip="$(cat ../data/private_ip)"
+region="$(cat ../data/region)"
+
+# https://www.nomadproject.io/docs/agent/configuration/index.html
+# https://www.nomadproject.io/guides/cluster/automatic.html
+# https://www.nomadproject.io/docs/agent/configuration/consul.html
+# https://www.nomadproject.io/docs/vault-integration/index.html
+# "bootstrap_expect": $nomad_expect,
+echo "Writing nomad configuration..."
+cat > ../data/nomad.conf <<EOF
+[Unit]
+Description=nomad agent
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+Restart=on-failure
+EnvironmentFile=-/etc/sysconfig/nomad
+ExecStart=/usr/local/bin/nomad agent -config=/etc/systemd/system/nomad.d
+ExecReload=/bin/kill -HUP \$MAINPID
+KillSignal=SIGTERM
+User=${user}
+Group=${group}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# BASE
+cat > ../data/nomad_base.json <<EOF
+{
+	"encrypt": "${nomad_gossip_key}",
+	"data_dir": "/opt/nomad/data",
+	"consul": {},
+	"vault": {
+		"enabled": true,
+		"address": "http://vault.service.consul:8200",
+		"create_from_role": "nomad-cluster",
+		"token": "${nomad_token}"
+	},
+	"bind_addr": "${private_ip}",
+	"region": "${region}"
+}
+EOF
+
+# TLS
+cat > ../data/nomad_tls.json <<EOF
+{
+	"tls": {
+		"http": true,
+		"rpc": true,
+		"key_file": "/etc/certs/nomad_server.key",
+		"cert_file": "/etc/certs/nomad_server.crt",
+		"ca_file": "/etc/certs/ca.pem",
+		"verify_server_hostname": true,
+		"verify_https_client": true
+	}
+}
+EOF
+
+
+# MASTER
+cat > ../data/nomad_master.json <<EOF
+{
+	"server": {
+		"enabled": true,
+		"bootstrap_expect": ${nomad_expect}
+	}
+}
+EOF
+
+# SLAVE
+cat > ../data/nomad_slave.json <<EOF
+{
+}
+EOF
+
+# Merge
+if test -f /etc/certs/nomad_server.key; then
+	echo 'Configuring Nomad for TLS...'
+	./json_merge ../data/nomad_base.json ../data/nomad_tls.json "../data/nomad_${nomad_type}.json" > ../data/nomad.json
+else
+	echo 'Configuring Nomad without TLS...'
+	./json_merge ../data/nomad_base.json "../data/nomad_${nomad_type}.json" > ../data/nomad.json
+fi
+
+# Merge
+if test -f /etc/certs/nomad_server.key; then
+	export NOMAD_CACERT=/etc/certs/ca.pem
+	export NOMAD_CLIENT_CERT=/etc/certs/nomad_cli.crt
+	export NOMAD_CLIENT_KEY=/etc/certs/nomad_cli.key
+	./json_merge ../data/nomad_base.json ../data/nomad_tls.json "../data/nomad_${nomad_type}.json" > ../data/nomad.json
+else
+	./json_merge ../data/nomad_base.json "../data/nomad_${nomad_type}.json" > ../data/nomad.json
+fi
+
+
+# if vault.service.consul does not work, change it to
+# http://127.0.0.1:8200

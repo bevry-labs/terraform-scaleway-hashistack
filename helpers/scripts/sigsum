@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+
+if type sha256sum &> /dev/null; then
+	sha256sum "$1"
+elif type sha256sum &> /dev/null; then
+	shasum -a 256 "$1"
+else
+	echo "missing sha256sum/shasum"
+	exit 1
+fi

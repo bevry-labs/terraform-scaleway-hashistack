@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+cd "$(dirname "$0")"
+
+# Variables
+user="$(cat ../data/consul_user)"
+group="$(cat ../data/consul_group)"
+consul_type="$(cat ../data/consul_type)"
+consul_expect="$(cat ../data/consul_expect)"
+consul_gossip_key="$(cat ../data/consul_gossip_key)"
+private_ip="$(cat ../data/private_ip)"
+loopback_ip="$(cat ../data/loopback_ip)"
+join="$(cat ../data/join)"
+
+# Write configuration files
+# "recursors" : [ "1.1.1.1", "1.0.0.1" ],
+echo "Writing consul configuration..."
+cat > ../data/consul.conf <<EOF
+[Unit]
+Description=consul agent
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+Restart=on-failure
+EnvironmentFile=-/etc/sysconfig/consul
+ExecStart=/usr/local/bin/consul agent -config-dir=/etc/systemd/system/consul.d
+ExecReload=/bin/kill -HUP \$MAINPID
+KillSignal=SIGTERM
+User=${user}
+Group=${group}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# BASE
+cat > ../data/consul_base.json <<EOF
+{
+	"encrypt": "${consul_gossip_key}",
+	"ports" : {
+		"dns": 53,
+		"http": 8500,
+		"https": -1
+	},
+	"ui": true,
+	"data_dir": "/opt/consul/data",
+	"bind_addr": "${private_ip}",
+	"client_addr": "${loopback_ip}"
+}
+EOF
+
+# TLS
+cat > ../data/consul_tls.json <<EOF
+{
+	"ports" : {
+		"dns": 53,
+		"http": -1,
+		"https": 8500
+	},
+	"enable_agent_tls_for_checks": true,
+	"verify_incoming": false,
+	"verify_outgoing": false,
+	"verify_server_hostname": false,
+	"key_file": "/etc/certs/consul.key",
+	"cert_file": "/etc/certs/consul.crt",
+	"ca_file": "/etc/certs/consul.ca"
+}
+EOF
+
+# ORIGIN
+cat > ../data/consul_origin.json <<EOF
+{
+	"bootstrap": true,
+	"server": true
+}
+EOF
+
+# MASTER
+cat > ../data/consul_master.json <<EOF
+{
+	"bootstrap_expect": ${consul_expect},
+	"server": true,
+	"retry_join": ["${join}"]
+}
+EOF
+
+# SLAVE
+cat > ../data/consul_slave.json <<EOF
+{
+	"retry_join": ["${join}"]
+}
+EOF
+
+# Merge
+if test -f /etc/certs/consul.key; then
+	echo 'Configuring Consul for TLS...'
+	./json_merge ../data/consul_base.json ../data/consul_tls.json "../data/consul_${consul_type}.json" > ../data/consul.json
+else
+	echo 'Configuring Consul without TLS...'
+	./json_merge ../data/consul_base.json "../data/consul_${consul_type}.json" > ../data/consul.json
+fi
+
+# DNS
+echo "Configuring Consul DNS access..."
+nameserver_config="nameserver ${loopback_ip}"
+if grep "$nameserver_config" < /etc/resolv.conf; then
+	echo "nameserver already configured"
+else
+	echo "$nameserver_config" | cat - /etc/resolv.conf > /tmp/resolv.conf && sudo mv /tmp/resolv.conf /etc/resolv.conf
+fi
+# we can't just do
+# sudo echo "nameserver $LOOPBACK_IP" > /etc/resolv.conf
+# becasuse /etc/resolv.conf also contains these, which is necessary for scaleway networking perhaps... we could try add them to the consul resolver, but not sure that works
+# nameserver 10.1.94.8
+# domain cloud.online.net
+# search cloud.online.net

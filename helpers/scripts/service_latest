@@ -12,10 +12,7 @@ fi
 
 # Functions
 function fetch_latest_version {
-	curl -s "https://releases.hashicorp.com/$1/index.json" \
-	| jq -r '.versions | keys[]' \
-	| grep -v "beta" | grep -v "rc" | grep -v "alpha" \
-	| sort -V | tail -n1
+	curl -s "https://releases.hashicorp.com/$1/index.json" | json versions | json -k | grep -v "beta" | grep -v "rc" | grep -v "alpha" | json -- -1
 }
 
 # Fetch

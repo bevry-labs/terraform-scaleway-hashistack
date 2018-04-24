@@ -4,14 +4,15 @@ cd "$(dirname "$0")"
 
 # Variables
 public_ip="$(cat ../data/public_ip)"
-consul_version="$(cat ../data/consul_version)"
-vault_version="$(cat ../data/vault_version)"
-nomad_version="$(cat ../data/nomad_version)"
 
-# Fetch
-./service_download "consul" "$consul_version"
-./service_download "vault" "$vault_version"
-./service_download "nomad" "$nomad_version"
+# Check latest version, ignore return code
+./service_latest "consul" || true
+./service_latest "vault" || true
+./service_latest "nomad" || true
+
+# Write variables
+openssl rand -base64 16 > ../data/consul_gossip_key
+openssl rand -base64 16 > ../data/nomad_gossip_key
 
 # Known Hosts
 echo ""

@@ -6,6 +6,7 @@ cd "$(dirname "$0")"
 mkdir -p ../data
 mkdir -p ../files
 mkdir -p ../outputs
+mkdir -p /etc/certs/
 
 # Variables
 type="$(cat ../data/type)"
@@ -14,12 +15,21 @@ vault_type="$(cat ../data/vault_type)"
 docker_type="$(cat ../data/docker_type)"
 nomad_type="$(cat ../data/nomad_type)"
 
+
 echo ""
 echo "Installing dependencies..."
 sudo yum update -y
 sudo yum install -y unzip
 # sudo yum install -y net-tools # ifconfig
 # sudo yum install -y bind-tools # dig
+
+# As JQ does not exist for arm64, use node and json
+# https://github.com/stedolan/jq/issues/1655
+# https://github.com/trentm/json
+sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+sudo yum install -y nodejs --enablerepo=epel
+npm install -g json
+
 
 echo ""
 echo "Configuring ports..."
@@ -48,9 +58,6 @@ echo ""
 echo "Configuring vault as $vault_type..."
 if test -n "$vault_type"; then
 	./vault
-fi
-if test "$vault_type" = "origin"; then
-	./vault_init
 fi
 
 echo ""
