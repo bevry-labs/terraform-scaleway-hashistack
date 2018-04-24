@@ -2,15 +2,17 @@
 
 [Terraform](https://www.terraform.io) module to deploy [Consul](https://www.consul.io), [Nomad](https://www.nomadproject.io), [Vault](https://www.vaultproject.io) onto [Scaleway](https://www.scaleway.com)
 
-## Benefits
+This module is currently under construction. I would love assistance. [Please reach out.](https://balupton.com/meet)
 
-- [x] sets up a consul, vault, nomad, docker cluster for you
-- [x] configures scaleway and centos firewalls correctly for you
-- [ ] configures TLS certificates for you
+## Features
+
+- [x] deploys a consul, vault, nomad, docker cluster to scaleway
+- [x] configures scaleway and centos firewalls correctly
+- [ ] uses TLS for security
+- [ ] uses [Cloudflare's Argo Tunnel](https://www.cloudflare.com/products/argo-tunnel/) for security
+- [ ] uses [fabio](https://github.com/fabiolb/fabio) or [traefik](https://github.com/containous/traefik) for routing
 
 ## Todo
-
-Necessary:
 
 - [ ] TLS encryption
     - Vault
