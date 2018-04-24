@@ -45,7 +45,7 @@ Origin Server:
 - Initialises vault
 - Generates nomad vault configuration
 - Generates TLS certificates via vault pki
-- Restarts nomad and vault with TLS
+- Restarts consul and vault with TLS
 
 Master Server:
 
