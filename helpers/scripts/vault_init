@@ -2,9 +2,6 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-# Exports
-export VAULT_CLI_NO_COLOR=true
-
 # Clean
 function finish {
 	./shred "$temp"
@@ -23,116 +20,54 @@ policy_file="$temp/nomad-server-policy.hcl"
 role_file="$temp/nomad-cluster-role.json"
 
 # Variables
-loopback_ip="$(cat ../data/loopback_ip)"
-private_ip="$(cat ../data/private_ip)"
-public_ip="$(cat ../data/public_ip)"
 hostname="$(cat ../data/hostname)"
 
-# Configure vault CLI to access the vault server
-if test -f /etc/certs/vault.key; then
-	export VAULT_ADDR="https://${private_ip}:8200"
-else
-	export VAULT_ADDR="http://${private_ip}:8200"
-fi
+# Prepare
+# mkdir -p ../outputs/vault
 
 # Initialise the vault
 echo "Initialising the vault..."
-vault operator init -format=json > ../outputs/vault_init.json
-unseal_key_1="$(json unseal_keys_b64[0] < ../outputs/vault_init.json)"
-unseal_key_2="$(json unseal_keys_b64[1] < ../outputs/vault_init.json)"
-unseal_key_3="$(json unseal_keys_b64[2] < ../outputs/vault_init.json)"
-json root_token < ../outputs/vault_init.json > ../outputs/root_token
-root_token; root_token="$(cat ../outputs/root_token)"
-
-# Update the vault token
-export VAULT_TOKEN="$root_token"
+source ./vault_env
+vault operator init -format=json > ../outputs/vault/init.json
+./json_read unseal_keys_b64[0] < ../outputs/vault/init.json > ../outputs/unseal_key_1
+./json_read unseal_keys_b64[1] < ../outputs/vault/init.json > ../outputs/unseal_key_2
+./json_read unseal_keys_b64[2] < ../outputs/vault/init.json > ../outputs/unseal_key_3
+./json_read root_token < ../outputs/vault/init.json > ../outputs/root_token
 
 # Unseal the vault
-echo ""
-echo -e "Unsealing the vault..."
-vault operator unseal "$unseal_key_1"
-vault operator unseal "$unseal_key_2"
-vault operator unseal "$unseal_key_3"
+source ./vault_env
+./vault_unseal
+source ./vault_env
 
 # Create the cluster token
 echo ""
 echo -e "Creating the cluster token..."
-vault token create -format=json -display-name=cluster > ../outputs/vault_cluster.json
-json auth.client_token < ../outputs/vault_cluster.json > ../outputs/cluster_token
-cluster_token; cluster_token="$(cat ../outputs/cluster_token)"
-
-# Update the vault token
-export VAULT_TOKEN="$cluster_token"
+vault token create -format=json -display-name=cluster > ../outputs/vault/cluster.json
+./json_read auth.client_token < ../outputs/vault/cluster.json > ../outputs/cluster_token
+source ./vault_env
 
 # Enable PKI
 # https://www.vaultproject.io/docs/secrets/pki/index.html
 echo ""
-echo 'Creating TLS certificates...'
+echo 'Creating PKI certificate authorities...'
 # root
 vault secrets enable pki
 vault secrets tune -max-lease-ttl="$five_years" pki
-vault write -format=json pki/root/generate/internal common_name="${hostname} Root Authority" ttl="$five_years" > ../outputs/vault_pki.json
+vault write -format=json pki/root/generate/internal common_name="${hostname} Root Authority" ttl="$five_years" > ../outputs/vault/pki.json
 vault write -format=json pki/config/urls issuing_certificates="$VAULT_ADDR/v1/pki/ca" crl_distribution_points="$VAULT_ADDR/v1/pki/crl"
 vault write -format=json pki/roles/host allowed_domains="$hostname" allow_subdomains=true max_ttl=72h
 # intermediate
 vault secrets enable -path=pki_int pki
 vault secrets tune -max-lease-ttl="$five_years" pki_int
 # create certificate signing request
-vault write -format=json pki_int/intermediate/generate/internal common_name="${hostname} Intermediate Authority" ttl="$five_years" > ../outputs/vault_pki_int_csr.json
-json data.csr < ../outputs/vault_pki_int_csr.json > ../outputs/vault_int.csr
+vault write -format=json pki_int/intermediate/generate/internal common_name="${hostname} Intermediate Authority" ttl="$five_years" > ../outputs/vault/pki_int_csr.json
+json data.csr < ../outputs/vault/pki_int_csr.json > ../outputs/vault/int.csr
 # have the root ca sign the int ca's signing request to generate the certs for the int ca
-vault write -format=json pki/root/sign-intermediate csr=@../outputs/vault_int.csr format=pem_bundle > ../outputs/vault_pki_int.json
-json data.certificate < ../outputs/vault_pki_int.json > ../outputs/vault_pki_int.cert
+vault write -format=json pki/root/sign-intermediate csr=@../outputs/vault/int.csr format=pem_bundle > ../outputs/vault/pki_int.json
+json data.certificate < ../outputs/vault/pki_int.json > ../outputs/vault/pki_int.cert
 # upload the signed certificate to vault
-vault write -format=json pki_int/intermediate/set-signed certificate=@../outputs/vault_pki_int.cert
+vault write -format=json pki_int/intermediate/set-signed certificate=@../outputs/vault/pki_int.cert
 vault write -format=json pki_int/config/urls issuing_certificates="$VAULT_ADDR/v1/pki_int/ca" crl_distribution_points="$VAULT_ADDR/v1/pki_int/crl"
-vault write -format=json pki_int/roles/host allowed_domains="$hostname" allow_subdomains=true max_ttl=72h
-# consul - alt_names="consul.service.consul"
-vault write -format=json pki_int/issue/host common_name="consul.$hostname" ip_sans="${private_ip},${loopback_ip},${public_ip}" > ../outputs/vault_pki_int_consul.json
-json data.private_key < ../outputs/vault_pki_int_consul.json > /etc/certs/consul.key
-json data.certificate < ../outputs/vault_pki_int_consul.json > /etc/certs/consul.crt
-json data.issuing_ca < ../outputs/vault_pki_int_consul.json > /etc/certs/consul.ca
-# vault - alt_names="vault.service.consul"
-vault write -format=json pki_int/issue/host common_name="vault.$hostname" ip_sans="${private_ip},${loopback_ip},${public_ip}" > ../outputs/vault_pki_int_vault.json
-json data.private_key < ../outputs/vault_pki_int_vault.json > /etc/certs/vault.key
-json data.certificate < ../outputs/vault_pki_int_vault.json > /etc/certs/vault.crt
-json data.issuing_ca < ../outputs/vault_pki_int_vault.json > /etc/certs/vault.ca
-# nomad server
-vault write -format=json pki_int/issue/host common_name="server.nomad.$hostname" > ../outputs/vault_pki_int_nomad_server.json
-json data.private_key < ../outputs/vault_pki_int_nomad_server.json > /etc/certs/nomad_server.key
-json data.certificate < ../outputs/vault_pki_int_nomad_server.json > /etc/certs/nomad_server.crt
-json data.issuing_ca < ../outputs/vault_pki_int_nomad_server.json > /etc/certs/nomad_server.ca
-# nomad client
-vault write -format=json pki_int/issue/host common_name="client.nomad.$hostname" > ../outputs/vault_pki_int_nomad_client.json
-json data.private_key < ../outputs/vault_pki_int_nomad_client.json > /etc/certs/nomad_client.key
-json data.certificate < ../outputs/vault_pki_int_nomad_client.json > /etc/certs/nomad_client.crt
-json data.issuing_ca < ../outputs/vault_pki_int_nomad_client.json > /etc/certs/nomad_client.ca
-# user
-vault write -format=json pki_int/issue/host common_name="user.$hostname" > ../outputs/vault_pki_int_user.json
-json data.private_key < ../outputs/vault_pki_int_user.json > /etc/certs/user.key
-json data.certificate < ../outputs/vault_pki_int_user.json > /etc/certs/user.crt
-json data.issuing_ca < ../outputs/vault_pki_int_user.json > /etc/certs/user.ca
-
-# environment variables
-# https://www.consul.io/docs/commands/index.html#environment-variables
-export CONSUL_HTTP_SSL=true
-export CONSUL_HTTP_SSL_VERIFY=true
-export CONSUL_CACERT=/etc/certs/user.ca
-export CONSUL_CLIENT_CERT=/etc/certs/user.crt
-export CONSUL_CLIENT_KEY=/etc/certs/user.key
-# CONSUL_TLS_SERVER_NAME
-# https://www.vaultproject.io/docs/commands/index.html#environment-variables
-export VAULT_CACERT=/etc/certs/user.ca
-export VAULT_CLIENT_CERT=/etc/certs/user.crt
-export VAULT_CLIENT_KEY=/etc/certs/user.key
-# VAULT_TLS_SERVER_NAME
-# https://www.nomadproject.io/guides/securing-nomad.html#node-certificates
-# client.global.nomad for a client node in the global region
-# server.global.nomad for a server node in the us-west region
-export NOMAD_CACERT=/etc/certs/user.ca
-export NOMAD_CLIENT_CERT=/etc/certs/user.crt
-export NOMAD_CLIENT_KEY=/etc/certs/user.key
-# export NOMAD_TLS_SERVER_NAME
 
 # https://www.nomadproject.io/docs/vault-integration/index.html
 # @todo perhaps can be replaced with: https://www.vaultproject.io/docs/secrets/nomad/index.html
@@ -142,6 +77,5 @@ echo -e "Setup vault permissions for nomad..."
 ./download "https://nomadproject.io/data/vault/nomad-cluster-role.json" "$role_file"
 vault policy write nomad-server "$policy_file"
 vault write /auth/token/roles/nomad-cluster @"$role_file"
-vault token create -format=json -policy nomad-server -period 72h -orphan > ../outputs/vault_nomad.json
-json auth.client_token < ../outputs/vault_nomad.json > ../outputs/nomad_token
-
+vault token create -format=json -policy nomad-server -period 72h -orphan > ../outputs/vault/nomad.json
+./json_read auth.client_token < ../outputs/vault/nomad.json > ../outputs/nomad_token

@@ -7,10 +7,17 @@ user="$(cat ../data/consul_user)"
 group="$(cat ../data/consul_group)"
 consul_type="$(cat ../data/consul_type)"
 consul_expect="$(cat ../data/consul_expect)"
-consul_gossip_key="$(cat ../data/consul_gossip_key)"
 private_ip="$(cat ../data/private_ip)"
 loopback_ip="$(cat ../data/loopback_ip)"
 join="$(cat ../data/join)"
+
+# Outputs
+if test -f ../data/consul_gossip_key; then
+	consul_gossip_key="$(cat ../data/consul_gossip_key)"
+else
+	openssl rand -base64 16 > ../outputs/consul_gossip_key
+	consul_gossip_key="$(cat ../outputs/consul_gossip_key)"
+fi
 
 # Write configuration files
 # "recursors" : [ "1.1.1.1", "1.0.0.1" ],
@@ -44,6 +51,7 @@ cat > ../data/consul_base.json <<EOF
 		"https": -1
 	},
 	"ui": true,
+	"datacenter": "global",
 	"data_dir": "/opt/consul/data",
 	"bind_addr": "${private_ip}",
 	"client_addr": "${loopback_ip}"
@@ -51,6 +59,8 @@ cat > ../data/consul_base.json <<EOF
 EOF
 
 # TLS
+# https://www.consul.io/docs/agent/encryption.html#rpc-encryption-with-tls
+# https://www.nomadproject.io/guides/securing-nomad.html#node-certificates
 cat > ../data/consul_tls.json <<EOF
 {
 	"ports" : {
@@ -59,8 +69,8 @@ cat > ../data/consul_tls.json <<EOF
 		"https": 8500
 	},
 	"enable_agent_tls_for_checks": true,
-	"verify_incoming": false,
-	"verify_outgoing": false,
+	"verify_incoming": true,
+	"verify_outgoing": true,
 	"verify_server_hostname": false,
 	"key_file": "/etc/certs/consul.key",
 	"cert_file": "/etc/certs/consul.crt",

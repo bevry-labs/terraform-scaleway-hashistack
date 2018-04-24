@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+if test "${BASH_SOURCE[0]}" = "${0}"; then
+	echo "${BASH_SOURCE[0]} must be sourced"
+	exit 1
+fi
+
+# https://www.consul.io/docs/commands/index.html#environment-variables
+if test -f /etc/certs/consul.key; then
+	export CONSUL_HTTP_SSL=true
+	export CONSUL_HTTP_SSL_VERIFY=true
+	export CONSUL_CACERT=/etc/certs/user.ca
+	export CONSUL_CLIENT_CERT=/etc/certs/user.crt
+	export CONSUL_CLIENT_KEY=/etc/certs/user.key
+	# CONSUL_TLS_SERVER_NAME
+fi

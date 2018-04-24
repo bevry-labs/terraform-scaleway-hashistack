@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+cd "$(dirname "$0")"
+
+# Reload the vault env
+source ./vault_env
+
+# Unseal the vault
+echo ""
+echo -e "Unsealing the vault..."
+unseal_key_1="$(cat ../outputs/unseal_key_1)"
+unseal_key_2="$(cat ../outputs/unseal_key_2)"
+unseal_key_3="$(cat ../outputs/unseal_key_3)"
+vault operator unseal "$unseal_key_1"
+vault operator unseal "$unseal_key_2"
+vault operator unseal "$unseal_key_3"

@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+if test "${BASH_SOURCE[0]}" = "${0}"; then
+	echo "${BASH_SOURCE[0]} must be sourced"
+	exit 1
+fi
+
+# Variables
+private_ip="$(cat ../data/private_ip)"
+
+# Exports
+export VAULT_CLI_NO_COLOR=true
+
+# Configure vault CLI to access the vault server
+if test -f /etc/certs/vault.key; then
+	# https://www.vaultproject.io/docs/commands/index.html#environment-variables
+	export VAULT_ADDR="https://${private_ip}:8200"
+	export VAULT_CACERT=/etc/certs/user.ca
+	export VAULT_CLIENT_CERT=/etc/certs/user.crt
+	export VAULT_CLIENT_KEY=/etc/certs/user.key
+	# VAULT_TLS_SERVER_NAME
+else
+	export VAULT_ADDR="http://${private_ip}:8200"
+fi
+
+# Update the vault token
+if test -f ../outputs/root_token; then
+	root_token="$(cat ../outputs/root_token)"
+	export VAULT_TOKEN="$root_token"
+fi
+
+# Update the vault token
+if test -f ../outputs/cluster_token; then
+	cluster_token="$(cat ../outputs/cluster_token)"
+	export VAULT_TOKEN="$cluster_token"
+fi

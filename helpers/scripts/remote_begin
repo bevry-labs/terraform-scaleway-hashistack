@@ -5,7 +5,8 @@ cd "$(dirname "$0")"
 # Prepare
 mkdir -p ../data
 mkdir -p ../files
-mkdir -p ../outputs
+mkdir -p ../outputs/certs
+mkdir -p ../outputs/vault
 mkdir -p /etc/certs/
 
 # Variables
@@ -61,11 +62,14 @@ if test -n "$vault_type"; then
 fi
 
 echo ""
+echo "Configuring TLS..."
+./enable_tls
+
+echo ""
 echo "Configuring docker as $docker_type..."
 if test -n "$docker_type"; then
 	./docker
 fi
-
 
 echo ""
 echo "Configuring nomad as $nomad_type..."

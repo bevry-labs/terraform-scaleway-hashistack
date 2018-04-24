@@ -11,23 +11,3 @@ vault_version="$(cat ../data/vault_version)"
 
 # Initialise vault, which initialises TLS, so reload everything
 ./vault_init
-
-echo 'Restarting services for new vault configuration...'
-systemctl daemon-reload
-sudo systemctl stop vault
-sudo systemctl stop consul
-
-./service_configure consul
-./service_configure vault
-
-systemctl daemon-reload
-sudo systemctl start consul
-sudo systemctl start vault
-
-sleep 5
-echo ''
-echo 'Checking Consul status...'
-sudo systemctl status consul
-echo ''
-echo 'Checking Vault status...'
-sudo systemctl status vault || /usr/local/bin/vault server -config=/etc/systemd/system/vault.d

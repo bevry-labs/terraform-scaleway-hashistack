@@ -4,15 +4,16 @@ cd "$(dirname "$0")"
 
 # Variables
 public_ip="$(cat ../data/public_ip)"
+output_path="$(cat ../data/output_path)"
+
+# Clean output
+./shred "$output_path"
+mkdir -p "$output_path/certs"
 
 # Check latest version, ignore return code
 ./service_latest "consul" || true
 ./service_latest "vault" || true
 ./service_latest "nomad" || true
-
-# Write variables
-openssl rand -base64 16 > ../data/consul_gossip_key
-openssl rand -base64 16 > ../data/nomad_gossip_key
 
 # Known Hosts
 echo ""

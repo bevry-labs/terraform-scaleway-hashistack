@@ -40,7 +40,7 @@ gpg --import "$key_file"
 gpg --verify "$sig_file" "$sha_file"
 
 # Verify Signature with Keybase
-if type keybase &> /dev/null; then
+if ./command_exists keybase; then
 	keybase pgp verify -d "$sig_file" -S hashicorp -i "$sha_file"
 fi
 

@@ -19,5 +19,5 @@ echo "open http://127.0.0.1:8500"
 if test "$vault_type" = "origin"; then
 	echo ""
 	echo "copying outputs and extracting values to $output_path"
-	scp -i "$private_key_path" "root@$public_ip:$remote_path/outputs/*" "$output_path"
+	scp -i "$private_key_path" -r "root@$public_ip:$remote_path/outputs/*" "$output_path"
 fi

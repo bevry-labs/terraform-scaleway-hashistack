@@ -8,9 +8,16 @@ group="$(cat ../data/nomad_group)"
 nomad_type="$(cat ../data/nomad_type)"
 nomad_token="$(cat ../data/nomad_token)"
 nomad_expect="$(cat ../data/nomad_expect)"
-nomad_gossip_key="$(cat ../data/nomad_gossip_key)"
 private_ip="$(cat ../data/private_ip)"
 region="$(cat ../data/region)"
+
+# Outputs
+if test -f ../data/nomad_gossip_key; then
+	nomad_gossip_key="$(cat ../data/nomad_gossip_key)"
+else
+	openssl rand -base64 16 > ../outputs/nomad_gossip_key
+	nomad_gossip_key="$(cat ../outputs/nomad_gossip_key)"
+fi
 
 # https://www.nomadproject.io/docs/agent/configuration/index.html
 # https://www.nomadproject.io/guides/cluster/automatic.html
@@ -45,9 +52,9 @@ cat > ../data/nomad_base.json <<EOF
 	"consul": {},
 	"vault": {
 		"enabled": true,
-		"address": "http://vault.service.consul:8200",
 		"create_from_role": "nomad-cluster",
-		"token": "${nomad_token}"
+		"token": "${nomad_token}",
+		"address": "http://vault.service.consul:8200"
 	},
 	"bind_addr": "${private_ip}",
 	"region": "${region}"
@@ -55,16 +62,38 @@ cat > ../data/nomad_base.json <<EOF
 EOF
 
 # TLS
+# https://www.nomadproject.io/docs/agent/configuration/consul.html
+# https://www.nomadproject.io/docs/agent/configuration/vault.html
+# @todo look into tls_server_name, allow_unauthenticated, create_from_role
+# https://www.nomadproject.io/docs/agent/configuration/tls.html
+# https://www.nomadproject.io/guides/securing-nomad.html
 cat > ../data/nomad_tls.json <<EOF
 {
+	"consul": {
+		"ssl": true,
+		"verify_ssl": true,
+		"ca_file": "/etc/certs/consul.ca",
+		"cert_file": "/etc/certs/consul.crt",
+		"key_file": "/etc/certs/consul.key"
+	},
+	"vault": {
+		"enabled": true,
+		"create_from_role": "nomad-cluster",
+		"token": "${nomad_token}",
+		"address": "https://vault.service.consul:8200",
+		"ca_file": "/etc/certs/vault.ca",
+		"cert_file": "/etc/certs/vault.crt",
+		"key_file": "/etc/certs/vault.key",
+		"tls_skip_verify": false
+	},
 	"tls": {
 		"http": true,
 		"rpc": true,
-		"key_file": "/etc/certs/nomad_server.key",
+		"ca_file": "/etc/certs/nomad_server.ca",
 		"cert_file": "/etc/certs/nomad_server.crt",
-		"ca_file": "/etc/certs/ca.pem",
-		"verify_server_hostname": true,
-		"verify_https_client": true
+		"key_file": "/etc/certs/nomad_server.key",
+		"verify_https_client": true,
+		"verify_server_hostname": true
 	}
 }
 EOF
@@ -82,14 +111,33 @@ EOF
 
 # SLAVE
 cat > ../data/nomad_slave.json <<EOF
+{}
+EOF
+
+# MASTER TLS
+cat > ../data/nomad_master_tls.json <<EOF
+{}
+EOF
+
+# SLAVE TLS
+cat > ../data/nomad_slave_tls.json <<EOF
 {
+	"tls": {
+		"http": true,
+		"rpc": true,
+		"ca_file": "/etc/certs/nomad_client.ca",
+		"cert_file": "/etc/certs/nomad_client.crt",
+		"key_file": "/etc/certs/nomad_client.key",
+		"verify_https_client": true,
+		"verify_server_hostname": true
+	}
 }
 EOF
 
 # Merge
 if test -f /etc/certs/nomad_server.key; then
 	echo 'Configuring Nomad for TLS...'
-	./json_merge ../data/nomad_base.json ../data/nomad_tls.json "../data/nomad_${nomad_type}.json" > ../data/nomad.json
+	./json_merge ../data/nomad_base.json ../data/nomad_tls.json "../data/nomad_${nomad_type}.json" "../data/nomad_${nomad_type}_tls.json" > ../data/nomad.json
 else
 	echo 'Configuring Nomad without TLS...'
 	./json_merge ../data/nomad_base.json "../data/nomad_${nomad_type}.json" > ../data/nomad.json

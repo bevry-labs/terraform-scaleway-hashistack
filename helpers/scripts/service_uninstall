@@ -11,6 +11,9 @@ if test "$service" = "vault"; then
 		systemctl stop vault
 		consul kv delete --recurse vault
 	fi
+	./shred ../outputs/vault/*
+	./shred ../outputs/*_token
+	./shred ../outputs/unseal_key_*
 	./shred "/etc/certs/${service}.key"
 	./shred "/etc/certs/${service}.crt"
 	./shred "/etc/certs/${service}.ca"

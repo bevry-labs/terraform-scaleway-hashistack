@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -ueE -o pipefail
 
-if type shred &> /dev/null; then
+if ./command_exists shred; then
 	exec="shred"
 	args="-u"
-elif type "gshred" &> /dev/null; then
+elif ./command_exists gshred; then
 	exec="gshred"
 	args="-u"
 else
@@ -12,12 +12,15 @@ else
 	args="-Rf"
 fi
 
-if test -d "$1"; then
-	find "$1" -type f -exec "$exec" "$args" {} \;
-	rm -Rfv "$1"
-elif test -f "$1"; then
-	echo "$exec" "$args" "$1"
-	"$exec" "$args" "$1"
-else
-	echo "no need to shred the path, as it does not seem to exist: $1"
-fi
+for p in "$@"; do
+	if test -d "$p"; then
+		find "$p" -type f -exec "$exec" "$args" {} \;
+		rm -Rfv "$p"
+	elif test -f "$p"; then
+		echo "$exec" "$args" "$p"
+		"$exec" "$args" "$p"
+	else
+		echo "no need to shred the path, as it does not seem to exist: $1"
+	fi
+done
+
