@@ -35,7 +35,7 @@ locals {
   vault_user             = "vault_user"
   vault_group            = "vault_user"
   vault_version          = "0.10.0"
-  vault_type             = "${var.type == "slave" ? "" : var.type}"
+  vault_type             = "${var.type == "origin" ? "origin" : ""}"
   vault_ports_local      = []
   vault_ports_local_tcp  = "${compact(split(" ", local.vault_type == "" ? "" : "8200"))}"
   vault_ports_local_udp  = []
