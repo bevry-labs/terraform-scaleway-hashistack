@@ -14,7 +14,7 @@ vault_type="$(cat ../data/vault_type)"
 echo ""
 echo "to access the consul web ui, and ssh into the server use the following:"
 echo "ssh -L 127.0.0.1:8500:127.0.0.1:8500 root@$public_ip"
-echo "open http://127.0.0.1:8500"
+echo "open https://127.0.0.1:8500"
 
 if test "$vault_type" = "origin"; then
 	echo ""

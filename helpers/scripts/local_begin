@@ -7,8 +7,8 @@ public_ip="$(cat ../data/public_ip)"
 output_path="$(cat ../data/output_path)"
 
 # Clean output
-./shred "$output_path"
 mkdir -p "$output_path/certs"
+mkdir -p "$output_path/terraform"
 
 # Check latest version, ignore return code
 ./service_latest "consul" || true
