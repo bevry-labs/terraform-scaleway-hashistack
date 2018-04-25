@@ -55,7 +55,9 @@ locals {
   tags = "${compact(local.tags_with_empties)}"
 }
 
-# security group
+# =====================================
+# Security Groups
+
 resource "scaleway_security_group" "cluster" {
   name        = "${var.region}_${var.type}"
   description = "${var.type} cluster security group"
@@ -109,6 +111,9 @@ resource "scaleway_security_group_rule" "accept-local-outbound-udp" {
   count    = "${length(local.ports_local_udp)}"
 }
 
+# =====================================
+# Server
+
 # Provision IP
 # resource "scaleway_ip" "public_ip" {
 #   count = "${var.count}"
@@ -117,11 +122,11 @@ resource "scaleway_security_group_rule" "accept-local-outbound-udp" {
 # Provision Server
 # public_ip           = "${element(scaleway_ip.public_ip.*.ip, count.index)}"
 resource "scaleway_server" "server" {
+  security_group      = "${scaleway_security_group.cluster.id}"
   count               = "${var.count}"
   name                = "${var.region}_${var.type}_${count.index}"
   image               = "${var.image}"
   bootscript          = "${var.bootscript}"
-  security_group      = "${scaleway_security_group.cluster.id}"
   type                = "ARM64-2GB"
   state               = "running"
   enable_ipv6         = false
