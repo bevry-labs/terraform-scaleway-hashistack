@@ -20,15 +20,19 @@ nomad_type="$(cat ../data/nomad_type)"
 echo ""
 echo "Installing dependencies..."
 sudo yum update -y
-sudo yum install -y unzip
+if ! ./command_exists unzip; then
+	sudo yum install -y unzip
+fi
 # sudo yum install -y net-tools # ifconfig
 # sudo yum install -y bind-tools # dig
 
 # As JQ does not exist for arm64, use node and json
 # https://github.com/stedolan/jq/issues/1655
 # https://github.com/trentm/json
-sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-sudo yum install -y nodejs --enablerepo=epel
+if ! ./command_exists node; then
+	sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+	sudo yum install -y nodejs --enablerepo=epel
+fi
 npm install -g json
 
 
@@ -49,30 +53,32 @@ sudo firewall-cmd --reload
 echo ""
 echo "Configuring services as $type..."
 
-echo ""
-echo "Configuring consul as $consul_type..."
 if test -n "$consul_type"; then
+	echo ""
+	echo "Configuring consul as $consul_type..."
 	./consul
 fi
 
-echo ""
-echo "Configuring vault as $vault_type..."
 if test -n "$vault_type"; then
+	echo ""
+	echo "Configuring vault as $vault_type..."
 	./vault
 fi
 
-echo ""
-echo "Configuring TLS..."
-./enable_tls
+if test "$type" = "origin"; then
+	echo ""
+	echo "Configuring TLS..."
+	./enable_tls
+fi
 
-echo ""
-echo "Configuring docker as $docker_type..."
 if test -n "$docker_type"; then
+	echo ""
+	echo "Configuring docker as $docker_type..."
 	./docker
 fi
 
-echo ""
-echo "Configuring nomad as $nomad_type..."
 if test -n "$nomad_type"; then
+	echo ""
+	echo "Configuring nomad as $nomad_type..."
 	./nomad
 fi

@@ -10,6 +10,11 @@ variable "type" {
   type = "string" # origin, master, slave
 }
 
+variable "state" {
+  type    = "string"  # running, stopped
+  default = "running"
+}
+
 variable "hostname" {
   type = "string"
 }

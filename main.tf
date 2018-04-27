@@ -15,27 +15,30 @@
 # https://forums.docker.com/t/docker-ports-in-aws-ec2/15799
 # web_ports = [443]
 locals {
-  is_origin              = "${var.type == "origin" ? true : false}"
   loopback_ip            = "127.0.0.1"
-  docker_type            = "${var.type == "slave" ? "present" : ""}"
+  docker_types           = "${map("slave", "present")}"
+  docker_type            = "${lookup(local.docker_types, var.type, "")}"
   consul_user            = "root"
   consul_group           = "root"
   consul_version         = "1.0.7"
-  consul_type            = "${var.type}"
+  consul_types           = "${map("origin", "origin", "master", "master", "slave", "slave")}"
+  consul_type            = "${lookup(local.consul_types, var.type, "")}"
   consul_ports_local     = [8301, 8302, 8600]
   consul_ports_local_tcp = [8300, 8500]
   consul_ports_local_udp = []
   nomad_user             = "nomad_user"
   nomad_group            = "nomad_user"
   nomad_version          = "0.8.1"
-  nomad_type             = "${var.type == "origin" ? "" : var.type}"
+  nomad_types            = "${map("master", "master", "slave", "slave")}"
+  nomad_type             = "${lookup(local.nomad_types, var.type, "")}"
   nomad_ports_local      = []
   nomad_ports_local_tcp  = "${compact(split(" ", local.nomad_type == "" ? "" : "4646 4647 4648"))}"
   nomad_ports_local_udp  = []
   vault_user             = "vault_user"
   vault_group            = "vault_user"
-  vault_version          = "0.10.0"
-  vault_type             = "${var.type == "origin" ? "origin" : ""}"
+  vault_version          = "0.10.1"
+  vault_types            = "${map("origin", "origin")}"
+  vault_type             = "${lookup(local.vault_types, var.type, "")}"
   vault_ports_local      = []
   vault_ports_local_tcp  = "${compact(split(" ", local.vault_type == "" ? "" : "8200"))}"
   vault_ports_local_udp  = []
@@ -59,11 +62,12 @@ locals {
 # Security Groups
 
 resource "scaleway_security_group" "cluster" {
-  name        = "${var.region}_${var.type}"
-  description = "${var.type} cluster security group"
+  name                    = "${var.region}_${var.type}"
+  description             = "${var.type} cluster security group"
+  enable_default_security = false
 }
 
-resource "scaleway_security_group_rule" "accept-local-inbound-tcp" {
+resource "scaleway_security_group_rule" "accept_local_inbound_tcp" {
   security_group = "${scaleway_security_group.cluster.id}"
 
   action    = "accept"
@@ -75,7 +79,7 @@ resource "scaleway_security_group_rule" "accept-local-inbound-tcp" {
   count    = "${length(local.ports_local_tcp)}"
 }
 
-resource "scaleway_security_group_rule" "accept-local-inbound-udp" {
+resource "scaleway_security_group_rule" "accept_local_inbound_udp" {
   security_group = "${scaleway_security_group.cluster.id}"
 
   action    = "accept"
@@ -87,7 +91,7 @@ resource "scaleway_security_group_rule" "accept-local-inbound-udp" {
   count    = "${length(local.ports_local_udp)}"
 }
 
-resource "scaleway_security_group_rule" "accept-local-outbound-tcp" {
+resource "scaleway_security_group_rule" "accept_local_outbound_tcp" {
   security_group = "${scaleway_security_group.cluster.id}"
 
   action    = "accept"
@@ -99,7 +103,7 @@ resource "scaleway_security_group_rule" "accept-local-outbound-tcp" {
   count    = "${length(local.ports_local_tcp)}"
 }
 
-resource "scaleway_security_group_rule" "accept-local-outbound-udp" {
+resource "scaleway_security_group_rule" "accept_local_outbound_udp" {
   security_group = "${scaleway_security_group.cluster.id}"
 
   action    = "accept"
@@ -122,13 +126,13 @@ resource "scaleway_security_group_rule" "accept-local-outbound-udp" {
 # Provision Server
 # public_ip           = "${element(scaleway_ip.public_ip.*.ip, count.index)}"
 resource "scaleway_server" "server" {
-  security_group      = "${scaleway_security_group.cluster.id}"
   count               = "${var.count}"
   name                = "${var.region}_${var.type}_${count.index}"
   image               = "${var.image}"
   bootscript          = "${var.bootscript}"
+  security_group      = "${scaleway_security_group.cluster.id}"
   type                = "ARM64-2GB"
-  state               = "running"
+  state               = "${var.state}"
   enable_ipv6         = false
   dynamic_ip_required = true
   tags                = "${local.tags}"
