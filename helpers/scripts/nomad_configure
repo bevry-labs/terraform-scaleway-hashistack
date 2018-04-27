@@ -2,21 +2,27 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
+echo ''
+echo '<nomad_configure>'
+echo ''
+
 # Variables
-user="$(cat ../data/nomad_user)"
-group="$(cat ../data/nomad_group)"
-nomad_type="$(cat ../data/nomad_type)"
-nomad_token="$(cat ../data/nomad_token)"
-nomad_expect="$(cat ../data/nomad_expect)"
-private_ip="$(cat ../data/private_ip)"
-region="$(cat ../data/region)"
+user="$(cat ../data/input/nomad_user)"
+group="$(cat ../data/input/nomad_group)"
+nomad_type="$(cat ../data/input/nomad_type)"
+nomad_expect="$(cat ../data/input/nomad_expect)"
+private_ip="$(cat ../data/input/private_ip)"
+region="$(cat ../data/input/region)"
+
+# Shared
+nomad_token="$(cat ../data/shared/auth/nomad_token)"
 
 # Outputs
-if test -f ../data/nomad_gossip_key; then
-	nomad_gossip_key="$(cat ../data/nomad_gossip_key)"
+if test -f ../data/shared/auth/nomad_gossip_key; then
+	nomad_gossip_key="$(cat ../data/shared/auth/nomad_gossip_key)"
 else
-	openssl rand -base64 16 > ../outputs/nomad_gossip_key
-	nomad_gossip_key="$(cat ../outputs/nomad_gossip_key)"
+	openssl rand -base64 16 > ../data/output/auth/nomad_gossip_key
+	nomad_gossip_key="$(cat ../data/output/auth/nomad_gossip_key)"
 fi
 
 # https://www.nomadproject.io/docs/agent/configuration/index.html
@@ -25,7 +31,7 @@ fi
 # https://www.nomadproject.io/docs/vault-integration/index.html
 # "bootstrap_expect": $nomad_expect,
 echo "Writing nomad configuration..."
-cat > ../data/nomad.conf <<EOF
+cat > ../data/local/conf/nomad.conf <<EOF
 [Unit]
 Description=nomad agent
 Requires=network-online.target
@@ -45,7 +51,7 @@ WantedBy=multi-user.target
 EOF
 
 # BASE
-cat > ../data/nomad_base.json <<EOF
+cat > ../data/local/conf/nomad_base.json <<EOF
 {
 	"encrypt": "${nomad_gossip_key}",
 	"data_dir": "/opt/nomad/data",
@@ -67,7 +73,7 @@ EOF
 # @todo look into tls_server_name, allow_unauthenticated, create_from_role
 # https://www.nomadproject.io/docs/agent/configuration/tls.html
 # https://www.nomadproject.io/guides/securing-nomad.html
-cat > ../data/nomad_tls.json <<EOF
+cat > ../data/local/conf/nomad_tls.json <<EOF
 {
 	"consul": {
 		"ssl": true,
@@ -100,7 +106,7 @@ EOF
 
 
 # MASTER
-cat > ../data/nomad_master.json <<EOF
+cat > ../data/local/conf/nomad_master.json <<EOF
 {
 	"server": {
 		"enabled": true,
@@ -110,17 +116,17 @@ cat > ../data/nomad_master.json <<EOF
 EOF
 
 # SLAVE
-cat > ../data/nomad_slave.json <<EOF
+cat > ../data/local/conf/nomad_slave.json <<EOF
 {}
 EOF
 
 # MASTER TLS
-cat > ../data/nomad_master_tls.json <<EOF
+cat > ../data/local/conf/nomad_master_tls.json <<EOF
 {}
 EOF
 
 # SLAVE TLS
-cat > ../data/nomad_slave_tls.json <<EOF
+cat > ../data/local/conf/nomad_slave_tls.json <<EOF
 {
 	"tls": {
 		"http": true,
@@ -137,10 +143,16 @@ EOF
 # Merge
 if test -f /etc/certs/nomad_server.key; then
 	echo 'Configuring Nomad for TLS...'
-	./json_merge ../data/nomad_base.json ../data/nomad_tls.json "../data/nomad_${nomad_type}.json" "../data/nomad_${nomad_type}_tls.json" > ../data/nomad.json
+	./json_merge \
+		../data/local/conf/nomad_base.json \
+		../data/local/conf/nomad_tls.json \
+		"../data/local/conf/nomad_${nomad_type}.json" \
+		"../data/local/conf/nomad_${nomad_type}_tls.json" > ../data/local/conf/nomad.json
 else
 	echo 'Configuring Nomad without TLS...'
-	./json_merge ../data/nomad_base.json "../data/nomad_${nomad_type}.json" > ../data/nomad.json
+	./json_merge \
+		../data/local/conf/nomad_base.json \
+		"../data/local/conf/nomad_${nomad_type}.json" > ../data/local/conf/nomad.json
 fi
 
 # Merge
@@ -148,11 +160,20 @@ if test -f /etc/certs/nomad_server.key; then
 	export NOMAD_CACERT=/etc/certs/ca.pem
 	export NOMAD_CLIENT_CERT=/etc/certs/nomad_cli.crt
 	export NOMAD_CLIENT_KEY=/etc/certs/nomad_cli.key
-	./json_merge ../data/nomad_base.json ../data/nomad_tls.json "../data/nomad_${nomad_type}.json" > ../data/nomad.json
+	./json_merge \
+		./data/local/nomad_base.json \
+		../data/local/conf/nomad_tls.json \
+		"../data/local/conf/nomad_${nomad_type}.json" > ../data/local/conf/nomad.json
 else
-	./json_merge ../data/nomad_base.json "../data/nomad_${nomad_type}.json" > ../data/nomad.json
+	./json_merge \
+		../data/local/conf/nomad_base.json \
+		"../data/local/conf/nomad_${nomad_type}.json" > ../data/local/conf/nomad.json
 fi
 
 
 # if vault.service.consul does not work, change it to
 # http://127.0.0.1:8200
+
+echo ''
+echo '<nomad_configure>'
+echo ''

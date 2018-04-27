@@ -2,8 +2,12 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
+echo ''
+echo '<vault>'
+echo ''
+
 # Variables
-vault_version="$(cat ../data/vault_version)"
+vault_version="$(cat ../data/input/vault_version)"
 
 # Install vault
 ./service_download "vault" "$vault_version"
@@ -11,3 +15,7 @@ vault_version="$(cat ../data/vault_version)"
 
 # Initialise vault, which initialises TLS, so reload everything
 ./vault_init
+
+echo ''
+echo '</vault>'
+echo ''

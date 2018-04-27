@@ -2,17 +2,17 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-# Start
 echo ''
-echo './local_begin start'
+echo '<local_begin>'
+echo ''
+
+# Notify
+if ./command_exists say; then
+	say "server allocated, starting setup"
+fi
 
 # Variables
-public_ip="$(cat ../data/public_ip)"
-output_path="$(cat ../data/output_path)"
-
-# Clean output
-mkdir -p "$output_path/certs"
-mkdir -p "$output_path/terraform"
+public_ip="$(cat ../data/input/public_ip)"
 
 # Check latest version
 ./service_latest "consul"
@@ -32,6 +32,6 @@ echo "cleaning up"
 echo 'testing the new connection'
 echo 'exit' | ssh -T "root@$public_ip"
 
-# Complete
 echo ''
-echo './local_begin finished'
+echo '</local_begin>'
+echo ''

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+cd "$(dirname "$0")"
+
+echo ''
+echo "<local_prepare $1 $2 $3>"
+echo ''
+
+# Link
+rm -f ../data
+rm -f "$1/$2/shared"
+./shred "$1/$2"
+mkdir -p "$1/$2" "$1/shared"
+ln -Fs "$1/$2" ../data
+
+# Prepare
+mkdir -p ../data/input ../data/output
+
+# Shared
+if test "$3" != "base"; then
+	ln -Fs "$1/shared" ../data/shared
+	mkdir -p ../data/shared/auth ../data/shared/cert
+fi
+
+echo ''
+echo '</local_prepare>'
+echo ''

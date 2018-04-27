@@ -2,10 +2,17 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
+echo ''
+echo "<service_install $1>"
+echo ''
+
+# Locals
+temp="$(mktemp -d)"
+
 # Clean
 function finish {
 	./shred "$temp"
-	./shred "../files/$service.zip"
+	./shred "../data/local/files/$service.zip"
 	sudo systemctl status "$service"
 }
 trap finish EXIT
@@ -23,22 +30,19 @@ function user_exists {
 
 # Arguments
 service="$1"
-user="$(cat "../data/${service}_user")"
-group="$(cat "../data/${service}_group")"
-expected_version="$(cat "../data/${service}_version")"
+user="$(cat "../data/input/${service}_user")"
+group="$(cat "../data/input/${service}_group")"
+expected_version="$(cat "../data/input/${service}_version")"
 
-# Locals
-temp="$(mktemp -d)"
-
-echo ""
+echo ''
 echo "Installing $service..."
 
-echo ""
+echo ''
 echo "Unzipping $service..."
-unzip -d "$temp" "../files/$service.zip"
+unzip -d "$temp" "../data/local/files/$service.zip"
 chmod +x "$temp/$service"
 
-echo ""
+echo ''
 echo "Checking $service version..."
 version="$(get_version "$temp/$service")"
 if test "$version" != "$expected_version"; then
@@ -48,24 +52,24 @@ if test "$version" != "$expected_version"; then
 	exit 1
 fi
 
-echo ""
+echo ''
 echo "Moving $service into path..."
 sudo mv "$temp/$service" "/usr/local/bin/$service"
 
-echo ""
+echo ''
 echo "Detecting $service user $user..."
 if ! user_exists "$user"; then
 	echo "Adding $service user $user..."
 	sudo useradd "$user"
 fi
 
-echo ""
+echo ''
 echo "Setting $service executable permissions..."
 # make the executable only runnable by the user
 sudo chown "$user:$group" "/usr/local/bin/$service"
 sudo chmod 0740 "/usr/local/bin/$service"
 
-echo ""
+echo ''
 echo "Adjusting $service executable..."
 # ensure sensitive data is written by the system
 if test "$service" = "vault"; then
@@ -73,7 +77,7 @@ if test "$service" = "vault"; then
 	sudo setcap cap_ipc_lock=+ep /usr/local/bin/vault
 fi
 
-echo ""
+echo ''
 echo "Initialising data for $service..."
 # data configuration
 rm -Rf "/opt/$service"
@@ -81,13 +85,17 @@ mkdir -p "/opt/$service/data"
 sudo chmod -R 0740 "/opt/$service"
 sudo chown -R "$user:$group" "/opt/$service"
 
-echo ""
+echo ''
 echo "Configuring $service..."
 ./service_configure "$service"
 
-echo ""
+echo ''
 echo "Starting $service..."
 sudo systemctl enable "$service.service"
 sudo systemctl start "$service"
 # journalctl -u "$service.service"
 # manual start: sudo -u $user /usr/local/bin/$service agent -config=/etc/systemd/system/$service.d
+
+echo ''
+echo '</service_install>'
+echo ''

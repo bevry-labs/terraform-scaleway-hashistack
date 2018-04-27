@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+
+echo ''
+echo "<tls_add $1>"
+echo ''
+
+# https://github.com/balupton/dotfiles/blob/master/.scripts/commands/cert
+
+# Inputs
+name="$1"
+
+# Locals
+pass="$(openssl rand -base64 16)"
+cert_file="../data/output/cert/$name.crt"
+ca_file="../data/output/cert/$name.ca"
+key_file="../data/output/cert/$name.key"
+bundle_file="../data/output/cert/$name.p12"
+
+# Actions
+echo "creating $name pki bundle"
+openssl pkcs12 -export -CAfile "$ca_file" -inkey "$key_file" -in "$cert_file" -password "pass:$pass" -out "$bundle_file"
+echo "removing old $name pki bundle from system"
+subject="$(openssl x509 -subject -in "$cert_file" -noout | sed 's/.*CN=//')"
+sudo security delete-identity -c "$subject" || echo "old bundle doesn't exist in system - ok"
+echo "adding $name pki bundle to keychain"
+sudo security import "$bundle_file" -P "$pass"
+echo "trusting $name cert"
+sudo security add-trusted-cert -d -r trustAsRoot "$cert_file"
+echo "trusting $name cert authority"
+sudo security add-trusted-cert -d -r trustAsRoot "$ca_file"
+
+echo ''
+echo '</tls_add $1>'
+echo ''

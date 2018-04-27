@@ -46,7 +46,7 @@ data "scaleway_image" "centos" {
 locals {
   image            = "${var.image != "" ? "${var.image}" : "${data.scaleway_image.centos.id}"}"
   bootscript       = "${var.bootscript != "" ? "${var.bootscript}" : "${data.scaleway_bootscript.centos.id}"}"
-  output_path      = "${path.root}/data"
+  data_path        = "${path.root}/data"
   private_key_path = "${path.root}/.ssh/scaleway"
 }
 
@@ -62,7 +62,7 @@ module "cluster_origin" {
 
   image            = "${local.image}"
   bootscript       = "${local.bootscript}"
-  output_path      = "${local.output_path}"
+  data_path        = "${local.data_path}"
   private_key_path = "${local.private_key_path}"
   region           = "${var.region}"
   hostname         = "${var.hostname}"
@@ -83,7 +83,7 @@ module "par1_cluster_master" {
 
   image            = "${local.image}"
   bootscript       = "${local.bootscript}"
-  output_path      = "${local.output_path}"
+  data_path        = "${local.data_path}"
   private_key_path = "${local.private_key_path}"
   region           = "${var.region}"
   hostname         = "${var.hostname}"
@@ -92,7 +92,6 @@ module "par1_cluster_master" {
   join             = "${module.cluster_origin.private_ip}"
   consul_expect    = 3
   nomad_expect     = 2
-  nomad_token      = "${module.cluster_origin.nomad_token}"
 }
 
 module "par1_cluster_slave" {
@@ -104,12 +103,11 @@ module "par1_cluster_slave" {
 
   image            = "${local.image}"
   bootscript       = "${local.bootscript}"
-  output_path      = "${local.output_path}"
+  data_path        = "${local.data_path}"
   private_key_path = "${local.private_key_path}"
   region           = "${var.region}"
   hostname         = "${var.hostname}"
   type             = "slave"
   count            = 2
   join             = "${module.cluster_origin.private_ip}"
-  nomad_token      = "${module.cluster_origin.nomad_token}"
 }

@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+echo ''
+echo '<nomad_env>'
+echo ''
+
 if test "${BASH_SOURCE[0]}" = "${0}"; then
 	echo "${BASH_SOURCE[0]} must be sourced"
 	exit 1
@@ -13,3 +18,7 @@ if test -f /etc/certs/nomad.key; then
 	export NOMAD_CLIENT_KEY=/etc/certs/user.key
 	# export NOMAD_TLS_SERVER_NAME
 fi
+
+echo ''
+echo '</nomad_env>'
+echo ''

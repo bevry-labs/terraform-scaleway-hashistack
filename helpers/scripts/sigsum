@@ -3,7 +3,7 @@ set -ueE -o pipefail
 
 if ./command_exists sha256sum; then
 	sha256sum "$1"
-elif ./command_exists sha256sum; then
+elif ./command_exists shasum; then
 	shasum -a 256 "$1"
 else
 	echo "missing sha256sum/shasum"

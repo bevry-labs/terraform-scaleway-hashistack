@@ -2,9 +2,18 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
+echo ''
+echo '<nomad>'
+echo ''
+
 # Variables
-nomad_version="$(cat ../data/nomad_version)"
+nomad_version="$(cat ../data/input/nomad_version)"
 
 # Install
 ./service_download "nomad" "$nomad_version"
 ./service_install nomad
+
+echo ''
+echo '</nomad>'
+echo ''
+

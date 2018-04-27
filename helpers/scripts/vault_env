@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
+
+echo ''
+echo '<vault_env>'
+echo ''
+
 if test "${BASH_SOURCE[0]}" = "${0}"; then
 	echo "${BASH_SOURCE[0]} must be sourced"
 	exit 1
 fi
 
 # Variables
-private_ip="$(cat ../data/private_ip)"
+private_ip="$(cat ../data/input/private_ip)"
 
 # Exports
 export VAULT_CLI_NO_COLOR=true
@@ -23,13 +28,17 @@ else
 fi
 
 # Update the vault token
-if test -f ../outputs/root_token; then
-	root_token="$(cat ../outputs/root_token)"
+if test -f ../data/output/auth/root_token; then
+	root_token="$(cat ../data/output/auth/root_token)"
 	export VAULT_TOKEN="$root_token"
 fi
 
 # Update the vault token
-if test -f ../outputs/cluster_token; then
-	cluster_token="$(cat ../outputs/cluster_token)"
+if test -f ../data/output/auth/cluster_token; then
+	cluster_token="$(cat ../data/output/auth/cluster_token)"
 	export VAULT_TOKEN="$cluster_token"
 fi
+
+echo ''
+echo '</vault_env>'
+echo ''

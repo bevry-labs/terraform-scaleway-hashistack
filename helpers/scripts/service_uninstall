@@ -2,18 +2,22 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
+echo ''
+echo "<service_uninstall $1>"
+echo ''
+
 service="$1"
 
 if test "$service" = "vault"; then
-	vault_type="$(cat ../data/vault_type)"
+	vault_type="$(cat ../data/input/vault_type)"
 	if test "$vault_type" = "origin"; then
 		echo "erasing previous origin vault"
 		systemctl stop vault
 		consul kv delete --recurse vault
 	fi
-	./shred ../outputs/vault/*
-	./shred ../outputs/*_token
-	./shred ../outputs/unseal_key_*
+	./shred ../data/output/vault/*
+	./shred ../data/output/auth/*_token
+	./shred ../data/output/auth/unseal_key_*
 	./shred "/etc/certs/${service}.key"
 	./shred "/etc/certs/${service}.crt"
 	./shred "/etc/certs/${service}.ca"
@@ -21,3 +25,7 @@ else
 	echo "cannot yet uninstall the service $1"
 	exit 1
 fi
+
+echo ''
+echo "</service_uninstall>"
+echo ''

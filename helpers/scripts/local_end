@@ -2,22 +2,55 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-# Locals
-remote_path="/root/cluster"
+echo ''
+echo '<local_end>'
+echo ''
 
 # Variables
-output_path="$(cat ../data/output_path)"
-private_key_path="$(cat ../data/private_key_path)"
-public_ip="$(cat ../data/public_ip)"
-vault_type="$(cat ../data/vault_type)"
+private_key_path="$(cat ../data/input/private_key_path)"
+public_ip="$(cat ../data/input/public_ip)"
+hostname="$(cat ../data/input/hostname)"
+type="$(cat ../data/input/type)"
+vault_type="$(cat ../data/input/vault_type)"
 
-echo ""
+# Copy remote files
+if test "$vault_type" = "origin"; then
+	echo ''
+	echo "copying outputs and extracting values"
+	scp -i "$private_key_path" -r "root@$public_ip:/root/cluster/data/output/*" ../data/output
+fi
+
+# Copy outputs to shared
+if test -f ../data/output/auth/consul_gossip_key; then
+	cp -v ../data/output/auth/consul_gossip_key ../data/shared/auth/
+fi
+if test -f ../data/output/auth/nomad_gossip_key; then
+	cp -v ../data/output/auth/nomad_gossip_key ../data/shared/auth/
+fi
+if test "$type" = "origin"; then
+	cp -v ../data/output/auth/nomad_token ../data/shared/auth/
+	cp -v ../data/output/cert/* ../data/shared/cert/
+fi
+
+# Add certificates to system
+if test "$type" = "origin"; then
+	./tls_add consul
+	./tls_add vault
+	./tls_add user
+fi
+
+# Done
+echo ''
+echo "...ALL DONE..."
 echo "to access the consul web ui, and ssh into the server use the following:"
 echo "ssh -L 127.0.0.1:8500:127.0.0.1:8500 root@$public_ip"
-echo "open https://127.0.0.1:8500"
+echo "open https://consul.$hostname:8500"
 
-if test "$vault_type" = "origin"; then
-	echo ""
-	echo "copying outputs and extracting values to $output_path"
-	scp -i "$private_key_path" -r "root@$public_ip:$remote_path/outputs/*" "$output_path"
+# Notify
+if ./command_exists say; then
+	say "server setup, all done"
 fi
+
+echo ''
+echo '</local_end>'
+echo ''

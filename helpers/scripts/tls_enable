@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+cd "$(dirname "$0")"
+
+echo ''
+echo '<tls_enable>'
+echo ''
+
+# Variables
+loopback_ip="$(cat ../data/input/loopback_ip)"
+private_ip="$(cat ../data/input/private_ip)"
+public_ip="$(cat ../data/input/public_ip)"
+hostname="$(cat ../data/input/hostname)"
+
+# Reload vault env
+source ./vault_env
+
+# =====================================
+# TLS Certificates
+
+echo ''
+echo 'Configuring TLS certificates...'
+
+# Allow the creation of certificates
+vault write -format=json pki_int/roles/host allowed_domains="$hostname,consul,vault,nomad" allow_subdomains=true max_ttl=72h
+
+echo ''
+echo 'Generating TLS certificates...'
+
+
+# -------------------------------------
+# Consul
+
+vault write -format=json pki_int/issue/host common_name="consul.$hostname" alt_names="consul.service.consul,server.global.consul" ip_sans="${private_ip},${loopback_ip},${public_ip}" > ../data/output/vault/pki_int_consul.json
+json data.private_key < ../data/output/vault/pki_int_consul.json > ../data/output/cert/consul.key
+json data.certificate < ../data/output/vault/pki_int_consul.json > ../data/output/cert/consul.crt
+json data.issuing_ca < ../data/output/vault/pki_int_consul.json > ../data/output/cert/consul.ca
+
+
+# -------------------------------------
+# Vault
+
+vault write -format=json pki_int/issue/host common_name="vault.$hostname" alt_names="vault.service.consul,server.global.vault" ip_sans="${private_ip},${loopback_ip},${public_ip}" > ../data/output/vault/pki_int_vault.json
+json data.private_key < ../data/output/vault/pki_int_vault.json > ../data/output/cert/vault.key
+json data.certificate < ../data/output/vault/pki_int_vault.json > ../data/output/cert/vault.crt
+json data.issuing_ca < ../data/output/vault/pki_int_vault.json > ../data/output/cert/vault.ca
+
+# -------------------------------------
+# Nomad
+
+# nomad server
+vault write -format=json pki_int/issue/host common_name="server.nomad.$hostname" alt_names="server.global.nomad" ip_sans="${private_ip},${loopback_ip},${public_ip}" > ../data/output/vault/pki_int_nomad_server.json
+json data.private_key < ../data/output/vault/pki_int_nomad_server.json > ../data/output/cert/nomad_server.key
+json data.certificate < ../data/output/vault/pki_int_nomad_server.json > ../data/output/cert/nomad_server.crt
+json data.issuing_ca < ../data/output/vault/pki_int_nomad_server.json > ../data/output/cert/nomad_server.ca
+
+# nomad client
+vault write -format=json pki_int/issue/host common_name="client.nomad.$hostname" alt_names="client.global.nomad" ip_sans="${private_ip},${loopback_ip},${public_ip}" > ../data/output/vault/pki_int_nomad_client.json
+json data.private_key < ../data/output/vault/pki_int_nomad_client.json > ../data/output/cert/nomad_client.key
+json data.certificate < ../data/output/vault/pki_int_nomad_client.json > ../data/output/cert/nomad_client.crt
+json data.issuing_ca < ../data/output/vault/pki_int_nomad_client.json > ../data/output/cert/nomad_client.ca
+
+# -------------------------------------
+# User
+
+# user
+vault write -format=json pki_int/issue/host common_name="user.$hostname" > ../data/output/vault/pki_int_user.json
+json data.private_key < ../data/output/vault/pki_int_user.json > ../data/output/cert/user.key
+json data.certificate < ../data/output/vault/pki_int_user.json > ../data/output/cert/user.crt
+json data.issuing_ca < ../data/output/vault/pki_int_user.json > ../data/output/cert/user.ca
+
+# -------------------------------------
+# Move certificates
+
+cp -v ../data/output/cert/* /etc/certs
+
+
+# =====================================
+# Restart Services
+
+echo ''
+echo 'Stopping services...'
+systemctl daemon-reload
+sudo systemctl stop vault
+sudo systemctl stop consul
+
+echo ''
+echo 'Reconfiguring services...'
+./service_configure consul
+./service_configure vault
+
+echo ''
+echo 'Restarting services...'
+systemctl daemon-reload
+sudo systemctl start consul
+sudo systemctl start vault
+sleep 5
+
+echo ''
+echo 'Checking Consul...'
+sudo systemctl status consul
+
+echo ''
+echo 'Checking Vault...'
+sudo systemctl status vault # || /usr/local/bin/vault server -config=/etc/systemd/system/vault.d
+
+echo ''
+echo 'Reunsealing Vault...'
+./vault_unseal
+
+echo ''
+echo 'Checking Consul...'
+source ./consul_env
+consul info
+
+echo ''
+echo 'Checking Vault...'
+source ./vault_env
+vault status
+
+echo ''
+echo '</tls_enable>'
+echo ''

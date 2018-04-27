@@ -2,27 +2,31 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
+echo ''
+echo '<consul_configure>'
+echo ''
+
 # Variables
-user="$(cat ../data/consul_user)"
-group="$(cat ../data/consul_group)"
-consul_type="$(cat ../data/consul_type)"
-consul_expect="$(cat ../data/consul_expect)"
-private_ip="$(cat ../data/private_ip)"
-loopback_ip="$(cat ../data/loopback_ip)"
-join="$(cat ../data/join)"
+user="$(cat ../data/input/consul_user)"
+group="$(cat ../data/input/consul_group)"
+consul_type="$(cat ../data/input/consul_type)"
+consul_expect="$(cat ../data/input/consul_expect)"
+private_ip="$(cat ../data/input/private_ip)"
+loopback_ip="$(cat ../data/input/loopback_ip)"
+join="$(cat ../data/input/join)"
 
 # Outputs
-if test -f ../data/consul_gossip_key; then
-	consul_gossip_key="$(cat ../data/consul_gossip_key)"
+if test -f ../data/shared/auth/consul_gossip_key; then
+	consul_gossip_key="$(cat ../data/shared/auth/consul_gossip_key)"
 else
-	openssl rand -base64 16 > ../outputs/consul_gossip_key
-	consul_gossip_key="$(cat ../outputs/consul_gossip_key)"
+	openssl rand -base64 16 > ../data/output/auth/consul_gossip_key
+	consul_gossip_key="$(cat ../data/output/auth/consul_gossip_key)"
 fi
 
 # Write configuration files
 # "recursors" : [ "1.1.1.1", "1.0.0.1" ],
 echo "Writing consul configuration..."
-cat > ../data/consul.conf <<EOF
+cat > ../data/local/conf/consul.conf <<EOF
 [Unit]
 Description=consul agent
 Requires=network-online.target
@@ -42,7 +46,7 @@ WantedBy=multi-user.target
 EOF
 
 # BASE
-cat > ../data/consul_base.json <<EOF
+cat > ../data/local/conf/consul_base.json <<EOF
 {
 	"encrypt": "${consul_gossip_key}",
 	"ports" : {
@@ -61,7 +65,7 @@ EOF
 # TLS
 # https://www.consul.io/docs/agent/encryption.html#rpc-encryption-with-tls
 # https://www.nomadproject.io/guides/securing-nomad.html#node-certificates
-cat > ../data/consul_tls.json <<EOF
+cat > ../data/local/conf/consul_tls.json <<EOF
 {
 	"ports" : {
 		"dns": 53,
@@ -79,7 +83,7 @@ cat > ../data/consul_tls.json <<EOF
 EOF
 
 # ORIGIN
-cat > ../data/consul_origin.json <<EOF
+cat > ../data/local/conf/consul_origin.json <<EOF
 {
 	"bootstrap": true,
 	"server": true
@@ -87,7 +91,7 @@ cat > ../data/consul_origin.json <<EOF
 EOF
 
 # MASTER
-cat > ../data/consul_master.json <<EOF
+cat > ../data/local/conf/consul_master.json <<EOF
 {
 	"bootstrap_expect": ${consul_expect},
 	"server": true,
@@ -96,7 +100,7 @@ cat > ../data/consul_master.json <<EOF
 EOF
 
 # SLAVE
-cat > ../data/consul_slave.json <<EOF
+cat > ../data/local/conf/consul_slave.json <<EOF
 {
 	"retry_join": ["${join}"]
 }
@@ -105,10 +109,15 @@ EOF
 # Merge
 if test -f /etc/certs/consul.key; then
 	echo 'Configuring Consul for TLS...'
-	./json_merge ../data/consul_base.json ../data/consul_tls.json "../data/consul_${consul_type}.json" > ../data/consul.json
+	./json_merge \
+		../data/local/conf/consul_base.json \
+		../data/local/conf/consul_tls.json \
+		"../data/local/conf/consul_${consul_type}.json" > ../data/local/conf/consul.json
 else
 	echo 'Configuring Consul without TLS...'
-	./json_merge ../data/consul_base.json "../data/consul_${consul_type}.json" > ../data/consul.json
+	./json_merge \
+		../data/local/conf/consul_base.json \
+		"../data/local/conf/consul_${consul_type}.json" > ../data/local/conf/consul.json
 fi
 
 # DNS
@@ -125,3 +134,7 @@ fi
 # nameserver 10.1.94.8
 # domain cloud.online.net
 # search cloud.online.net
+
+echo ''
+echo '</consul_configure>'
+echo ''

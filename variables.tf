@@ -1,4 +1,4 @@
-variable "output_path" {
+variable "data_path" {
   type = "string"
 }
 
@@ -50,9 +50,4 @@ variable "consul_expect" {
 variable "nomad_expect" {
   type    = "string"
   default = 0
-}
-
-variable "nomad_token" {
-  type    = "string"
-  default = ""
 }

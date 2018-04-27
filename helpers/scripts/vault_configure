@@ -2,11 +2,15 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
+echo ''
+echo '<vault_configure>'
+echo ''
+
 # Variables
-user="$(cat ../data/vault_user)"
-group="$(cat ../data/vault_group)"
-vault_type="$(cat ../data/vault_type)"
-private_ip="$(cat ../data/private_ip)"
+user="$(cat ../data/input/vault_user)"
+group="$(cat ../data/input/vault_group)"
+vault_type="$(cat ../data/input/vault_type)"
+private_ip="$(cat ../data/input/private_ip)"
 
 # Check vault server type
 if test "$vault_type" != "origin"; then
@@ -18,7 +22,7 @@ fi
 # https://www.vaultproject.io/docs/configuration/storage/consul.html
 # but we still need a configuration file apparently...
 echo "Writing vault configuration..."
-cat > ../data/vault.conf <<EOF
+cat > ../data/local/conf/vault.conf <<EOF
 [Unit]
 Description=Vault Agent
 Requires=network-online.target
@@ -39,7 +43,7 @@ WantedBy=multi-user.target
 EOF
 
 # BASE
-cat > ../data/vault_base.json <<EOF
+cat > ../data/local/conf/vault_base.json <<EOF
 {
 	"ui": true,
 	"listener": {
@@ -56,7 +60,7 @@ cat > ../data/vault_base.json <<EOF
 EOF
 
 # TLS
-cat > ../data/vault_tls.json <<EOF
+cat > ../data/local/conf/vault_tls.json <<EOF
 {
 	"listener": {
 		"tcp": {
@@ -82,8 +86,14 @@ EOF
 # Merge
 if test -f /etc/certs/vault.key; then
 	echo 'Configuring Vault for TLS...'
-	./json_merge ../data/vault_base.json ../data/vault_tls.json > ../data/vault.json
+	./json_merge \
+		../data/local/conf/vault_base.json \
+		../data/local/conf/vault_tls.json > ../data/local/conf/vault.json
 else
 	echo 'Configuring Vault without TLS...'
-	cp ../data/vault_base.json ../data/vault.json
+	cp ../data/local/conf/vault_base.json ../data/local/conf/vault.json
 fi
+
+echo ''
+echo '</vault_configure>'
+echo ''

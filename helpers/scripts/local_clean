@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-set -ueE -o pipefail
-cd "$(dirname "$0")"
-
-# Directories
-./shred ../data
-./shred ../files
-mkdir -p ../data
-mkdir -p ../files

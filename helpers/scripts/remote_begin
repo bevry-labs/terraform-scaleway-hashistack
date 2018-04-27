@@ -2,22 +2,29 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
+echo ''
+echo '<remote_begin>'
+echo ''
+
 # Prepare
-mkdir -p ../data
-mkdir -p ../files
-mkdir -p ../outputs/certs
-mkdir -p ../outputs/vault
-mkdir -p /etc/certs/
+mkdir -p \
+	../data/input \
+	../data/local/files \
+	../data/local/conf \
+	../data/output/cert \
+	../data/output/vault \
+	../data/output/auth \
+	/etc/certs
 
 # Variables
-type="$(cat ../data/type)"
-consul_type="$(cat ../data/consul_type)"
-vault_type="$(cat ../data/vault_type)"
-docker_type="$(cat ../data/docker_type)"
-nomad_type="$(cat ../data/nomad_type)"
+type="$(cat ../data/input/type)"
+consul_type="$(cat ../data/input/consul_type)"
+vault_type="$(cat ../data/input/vault_type)"
+docker_type="$(cat ../data/input/docker_type)"
+nomad_type="$(cat ../data/input/nomad_type)"
 
 
-echo ""
+echo ''
 echo "Installing dependencies..."
 sudo yum update -y
 if ! ./command_exists unzip; then
@@ -33,52 +40,67 @@ if ! ./command_exists node; then
 	sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
 	sudo yum install -y nodejs --enablerepo=epel
 fi
-npm install -g json
+if ! ./command_exists json; then
+	npm install -g json
+fi
 
+# End of base
+if test "$type" = "base"; then
+	exit 0
+fi
 
-echo ""
+# Copy shared certs
+if ! ./is_empty_dir ../data/shared/cert; then
+	cp -v ../data/shared/cert/* /etc/certs
+fi
+
+echo ''
 echo "Configuring ports..."
 # https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/security_guide/sec-using_firewalls
 while IFS=',' read -r port; do
 	echo "configuring local $port/tcp"
 	sudo firewall-cmd --zone=internal --add-port="$port/tcp" --permanent
-done <../data/ports_local_tcp
+done <../data/input/ports_local_tcp
 while IFS=',' read -r port; do
 	echo "configuring local $port/udp"
 	sudo firewall-cmd --zone=internal --add-port="$port/udp" --permanent
-done <../data/ports_local_udp
+done <../data/input/ports_local_udp
 sudo firewall-cmd --reload
 
 
-echo ""
+echo ''
 echo "Configuring services as $type..."
 
 if test -n "$consul_type"; then
-	echo ""
+	echo ''
 	echo "Configuring consul as $consul_type..."
 	./consul
 fi
 
 if test -n "$vault_type"; then
-	echo ""
+	echo ''
 	echo "Configuring vault as $vault_type..."
 	./vault
 fi
 
 if test "$type" = "origin"; then
-	echo ""
+	echo ''
 	echo "Configuring TLS..."
-	./enable_tls
+	./tls_enable
 fi
 
 if test -n "$docker_type"; then
-	echo ""
+	echo ''
 	echo "Configuring docker as $docker_type..."
 	./docker
 fi
 
 if test -n "$nomad_type"; then
-	echo ""
+	echo ''
 	echo "Configuring nomad as $nomad_type..."
 	./nomad
 fi
+
+echo ''
+echo '</remote_begin>'
+echo ''

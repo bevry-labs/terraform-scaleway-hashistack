@@ -2,28 +2,36 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
+echo ''
+echo "<service_configure $1>"
+echo ''
+
 # Arguments
 service="$1"
-user="$(cat "../data/${service}_user")"
-group="$(cat "../data/${service}_group")"
+user="$(cat "../data/input/${service}_user")"
+group="$(cat "../data/input/${service}_group")"
 
-echo ""
+echo ''
 echo "Running custom configuration script for $service..."
 "./${service}_configure"
 
-echo ""
+echo ''
 echo "Configuring service configuration for $service..."
 # service configuration
 sudo rm -Rf "/etc/systemd/system/$service.d"
 sudo mkdir -p "/etc/systemd/system/$service.d"
-sudo mv "../data/$service.json" "/etc/systemd/system/$service.d/$service.json"
+sudo mv "../data/local/conf/$service.json" "/etc/systemd/system/$service.d/$service.json"
 sudo chmod 0640 "/etc/systemd/system/$service.d/$service.json"
 sudo chown "$user:$group" "/etc/systemd/system/$service.d/$service.json"
 
-echo ""
+echo ''
 echo "Injecting service for $service..."
 # service specification
 sudo rm -Rf "/etc/systemd/system/$service.service"
-sudo mv "../data/$service.conf" "/etc/systemd/system/$service.service"
+sudo mv "../data/local/conf/$service.conf" "/etc/systemd/system/$service.service"
 sudo chmod 0640 "/etc/systemd/system/$service.service"
 sudo chown "$user:$group" "/etc/systemd/system/$service.service"
+
+echo ''
+echo '</service_configure>'
+echo ''

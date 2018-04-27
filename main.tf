@@ -142,11 +142,11 @@ resource "scaleway_server" "server" {
   }
 
   provisioner "local-exec" {
-    command = "${path.module}/helpers/scripts/local_clean"
+    command = "${path.module}/helpers/scripts/local_prepare ${var.data_path} ${var.region}_${var.type}_${count.index} ${var.type}"
   }
 
   provisioner "local-exec" {
-    command = "${path.module}/helpers/scripts/config_write consul_user=${local.consul_user} consul_group=${local.consul_group} vault_user=${local.vault_user} vault_group=${local.vault_group} nomad_user=${local.nomad_user} nomad_group=${local.nomad_group} hostname=${var.hostname} output_path=${var.output_path} private_key_path=${var.private_key_path} ports_local_tcp=${join(",", local.ports_local_tcp)} ports_local_udp=${join(",", local.ports_local_udp)} consul_version=${local.consul_version} consul_type=${local.consul_type} consul_expect=${var.consul_expect} nomad_version=${local.nomad_version} nomad_type=${local.nomad_type} nomad_expect=${var.nomad_expect} nomad_token=${var.nomad_token} vault_version=${local.vault_version} vault_type=${local.vault_type} docker_type=${local.docker_type} name=${var.region}_${var.type}_${count.index} join=${var.join} loopback_ip=${local.loopback_ip} type=${var.type} region=${var.region} private_ip=${self.private_ip} public_ip=${self.public_ip} "
+    command = "${path.module}/helpers/scripts/config_write consul_user=${local.consul_user} consul_group=${local.consul_group} vault_user=${local.vault_user} vault_group=${local.vault_group} nomad_user=${local.nomad_user} nomad_group=${local.nomad_group} hostname=${var.hostname} private_key_path=${var.private_key_path} ports_local_tcp=${join(",", local.ports_local_tcp)} ports_local_udp=${join(",", local.ports_local_udp)} consul_version=${local.consul_version} consul_type=${local.consul_type} consul_expect=${var.consul_expect} nomad_version=${local.nomad_version} nomad_type=${local.nomad_type} nomad_expect=${var.nomad_expect} vault_version=${local.vault_version} vault_type=${local.vault_type} docker_type=${local.docker_type} name=${var.region}_${var.type}_${count.index} join=${var.join} loopback_ip=${local.loopback_ip} type=${var.type} region=${var.region} private_ip=${self.private_ip} public_ip=${self.public_ip} "
   }
 
   provisioner "local-exec" {
@@ -165,7 +165,7 @@ resource "scaleway_server" "server" {
     inline = [
       "sysctl kernel.hostname=${var.region}_${var.type}_${count.index}",
       "rm -Rf /root/cluster",
-      "mkdir /root/cluster",
+      "mkdir -p /root/cluster /root/cluster/data",
     ]
   }
 

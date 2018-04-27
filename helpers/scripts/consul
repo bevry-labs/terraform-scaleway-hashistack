@@ -2,9 +2,17 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
+echo ''
+echo '<consul>'
+echo ''
+
 # Variables
-consul_version="$(cat ../data/consul_version)"
+consul_version="$(cat ../data/input/consul_version)"
 
 # Install
 ./service_download consul "$consul_version"
 ./service_install consul
+
+echo ''
+echo '</consul>'
+echo ''
