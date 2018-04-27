@@ -8,13 +8,7 @@ This module is currently under construction. I would love assistance. [Please re
 
 - [x] deploys a consul, vault, nomad, docker cluster to scaleway
 - [x] configures scaleway and centos firewalls correctly
-- [ ] uses TLS for security
-- [ ] uses [Cloudflare's Argo Tunnel](https://www.cloudflare.com/products/argo-tunnel/) for security
-- [ ] uses [fabio](https://github.com/fabiolb/fabio) or [traefik](https://github.com/containous/traefik) for routing
-
-## Todo
-
-- [ ] TLS encryption
+- [x] uses mutual TLS for consul, nomad
     - Vault
         - https://www.vaultproject.io/api/secret/pki/index.html
             - https://www.vaultproject.io/docs/secrets/pki/index.html
@@ -23,9 +17,12 @@ This module is currently under construction. I would love assistance. [Please re
         - https://www.vaultproject.io/docs/configuration/listener/tcp.html
     - Consul
         - https://www.consul.io/docs/agent/encryption.html
+- [ ] uses mutual TLS for nomad
     - Nomad
         - https://www.nomadproject.io/docs/agent/encryption.html
             - https://www.nomadproject.io/guides/securing-nomad.html
+- [ ] uses [Cloudflare's Argo Tunnel](https://www.cloudflare.com/products/argo-tunnel/) for security
+- [ ] uses [fabio](https://github.com/fabiolb/fabio) or [traefik](https://github.com/containous/traefik) for routing
 
 ## Preparation
 
