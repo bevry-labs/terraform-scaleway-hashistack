@@ -18,18 +18,11 @@ function fetch_latest_version {
 # Fetch
 latest_version="$(fetch_latest_version "$service")"
 
-# Output
-if "$version"; then
-	echo "current version: $version"
-fi
-echo "latest version:  $latest_version"
-echo "changelog: https://github.com/hashicorp/$service/blob/master/CHANGELOG.md"
-
 # Check latest version
 if test "$version" = false; then
-	exit 0
+	echo "$service [latest $latest_version] https://github.com/hashicorp/$service/blob/master/CHANGELOG.md"
 elif test "$latest_version" = "$version"; then
-	exit 0
-else
-	exit 1
+	echo "$service [current $version] is [latest $latest_version] https://github.com/hashicorp/$service/blob/master/CHANGELOG.md"
+elif test "$latest_version" != "$version"; then
+	echo "$service [current $version] isnt [latest $latest_version] https://github.com/hashicorp/$service/blob/master/CHANGELOG.md"
 fi

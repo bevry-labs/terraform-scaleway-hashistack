@@ -10,10 +10,10 @@ output_path="$(cat ../data/output_path)"
 mkdir -p "$output_path/certs"
 mkdir -p "$output_path/terraform"
 
-# Check latest version, ignore return code
-./service_latest "consul" || true
-./service_latest "vault" || true
-./service_latest "nomad" || true
+# Check latest version
+./service_latest "consul"
+./service_latest "vault"
+./service_latest "nomad"
 
 # Known Hosts
 echo ""
