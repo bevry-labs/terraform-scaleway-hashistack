@@ -2,6 +2,10 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
+# Start
+echo ''
+echo './local_begin start'
+
 # Variables
 public_ip="$(cat ../data/public_ip)"
 output_path="$(cat ../data/output_path)"
@@ -16,8 +20,18 @@ mkdir -p "$output_path/terraform"
 ./service_latest "nomad"
 
 # Known Hosts
-echo ""
-echo "adding the new host to known hosts"
-ssh-keygen -R "$public_ip"
-ssh-keyscan "$public_ip" >> "$HOME/.ssh/known_hosts"
+echo ''
+echo "removing old keys of the host"
+ssh-keygen -R "$public_ip" || echo 'no old keys for the host'
+echo "adding new keys for the host"
+until ssh-keyscan "$public_ip" >> "$HOME/.ssh/known_hosts"; do
+	sleep 10
+done
+echo "cleaning up"
 ./shred "$HOME/.ssh/known_hosts.old"
+echo 'testing the new connection'
+echo 'exit' | ssh -T "root@$public_ip"
+
+# Complete
+echo ''
+echo './local_begin finished'
