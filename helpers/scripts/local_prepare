@@ -2,26 +2,40 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
 echo "<local_prepare $1 $2 $3>"
-echo ''
+
+# Inputs
+root_data_path="$1"
+data_path="$1/$2"
+type="$3"
 
 # Link
-rm -f ../data
-rm -f "$1/$2/shared"
-./shred "$1/$2"
-mkdir -p "$1/$2" "$1/shared"
-ln -Fs "$1/$2" ../data
+rm -f "$data_path/shared"
+./shred "$data_path"
+if test "$type" = "origin"; then
+	# @todo detect if certs exist already on origin deploy
+	# if so ask the user if they would like to reuse them
+	# and add support for it
+	# it would require a nomad cluster still persisting, as vault stores its stuff there
+	# or a restore of a consul dump
+	# https://www.consul.io/docs/commands/kv/export.html
+	# https://www.consul.io/docs/commands/kv/import.html
+	./shred "$root_data_path/shared"
+fi
+mkdir -p "$data_path" "$root_data_path/shared/auth" "$root_data_path/shared/cert" "$data_path/input" "$data_path/output"
 
-# Prepare
-mkdir -p ../data/input ../data/output
-
-# Shared
+# Link shared inside the server's data path
 if test "$3" != "base"; then
-	ln -Fs "$1/shared" ../data/shared
-	mkdir -p ../data/shared/auth ../data/shared/cert
+	ln -Fs "$root_data_path/shared" "$data_path/shared"
 fi
 
-echo ''
+# Create Gossip Encryption keys if they don't exist
+if ! test -f "$data_path/shared/auth/consul_gossip_key"; then
+	openssl rand -base64 16 > "$data_path/shared/auth/consul_gossip_key"
+fi
+if ! test -f "$data_path/shared/auth/nomad_gossip_key"; then
+	openssl rand -base64 16 > "$data_path/shared/auth/nomad_gossip_key"
+fi
+
 echo '</local_prepare>'
-echo ''
+

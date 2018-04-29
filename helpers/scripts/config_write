@@ -2,16 +2,14 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
-echo '<config_write>'
-echo ''
+echo "<config_write $1 ...>"
 
-for arg in "$@"; do
+dir="$1"
+
+for arg in "${@:2}"; do
 	value="${arg#*=}"
 	key="${arg%=*}"
-	echo -n "$value" > "../data/input/$key"
+	echo -n "$value" > "$dir/$key"
 done
 
-echo ''
 echo '</config_write>'
-echo ''

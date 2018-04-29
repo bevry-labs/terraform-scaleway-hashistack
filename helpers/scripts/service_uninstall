@@ -2,9 +2,7 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
 echo "<service_uninstall $1>"
-echo ''
 
 service="$1"
 
@@ -26,6 +24,4 @@ else
 	exit 1
 fi
 
-echo ''
 echo "</service_uninstall>"
-echo ''

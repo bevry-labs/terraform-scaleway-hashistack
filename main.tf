@@ -40,22 +40,15 @@ locals {
   vault_types            = "${map("origin", "origin")}"
   vault_type             = "${lookup(local.vault_types, var.type, "")}"
   vault_ports_local      = []
-  vault_ports_local_tcp  = "${compact(split(" ", local.vault_type == "" ? "" : "8200"))}"
+  vault_ports_local_tcp  = "${compact(split(" ", local.vault_type == "" ? "" : "8200 8201"))}"
   vault_ports_local_udp  = []
   ports_local            = "${concat(local.consul_ports_local, local.nomad_ports_local, local.vault_ports_local)}"
   ports_local_tcp        = "${distinct(concat(local.ports_local, local.consul_ports_local_tcp, local.nomad_ports_local_tcp, local.vault_ports_local_tcp))}"
   ports_local_udp        = "${distinct(concat(local.ports_local, local.consul_ports_local_udp, local.nomad_ports_local_udp, local.vault_ports_local_udp))}"
 
-  tags_with_empties = [
-    "cluster",
-    "cluster_${var.type}",
-    "${local.vault_type != "" ? "vault_${local.vault_type}" : ""}",
-    "${local.consul_type != "" ? "consul_${local.consul_type}" : ""}",
-    "${local.nomad_type != "" ? "nomad_${local.nomad_type}" : ""}",
-    "${local.docker_type != "" ? "docker_${local.docker_type}" : ""}",
-  ]
-
-  tags = "${compact(local.tags_with_empties)}"
+  tags_string = "cluster cluster_${var.type} ${local.vault_type != "" ? "vault vault_${local.vault_type}" : ""} ${local.consul_type != "" ? "consul consul_${local.consul_type}" : ""} ${local.nomad_type != "" ? "nomad nomad_${local.nomad_type}" : ""} ${local.docker_type != "" ? "docker docker_${local.docker_type}" : ""}"
+  tags_array  = "${split(" ", local.tags_string)}"
+  tags        = "${compact(local.tags_array)}"
 }
 
 # =====================================
@@ -67,53 +60,53 @@ resource "scaleway_security_group" "cluster" {
   enable_default_security = false
 }
 
-resource "scaleway_security_group_rule" "accept_local_inbound_tcp" {
-  security_group = "${scaleway_security_group.cluster.id}"
+# resource "scaleway_security_group_rule" "accept_local_inbound_tcp" {
+#   security_group = "${scaleway_security_group.cluster.id}"
 
-  action    = "accept"
-  direction = "inbound"
+#   action    = "accept"
+#   direction = "inbound"
 
-  ip_range = "10.0.0.0/8"
-  protocol = "TCP"
-  port     = "${element(local.ports_local_tcp, count.index)}"
-  count    = "${length(local.ports_local_tcp)}"
-}
+#   ip_range = "10.0.0.0/8"
+#   protocol = "TCP"
+#   port     = "${element(local.ports_local_tcp, count.index)}"
+#   count    = "${length(local.ports_local_tcp)}"
+# }
 
-resource "scaleway_security_group_rule" "accept_local_inbound_udp" {
-  security_group = "${scaleway_security_group.cluster.id}"
+# resource "scaleway_security_group_rule" "accept_local_inbound_udp" {
+#   security_group = "${scaleway_security_group.cluster.id}"
 
-  action    = "accept"
-  direction = "inbound"
+#   action    = "accept"
+#   direction = "inbound"
 
-  ip_range = "10.0.0.0/8"
-  protocol = "UDP"
-  port     = "${element(local.ports_local_udp, count.index)}"
-  count    = "${length(local.ports_local_udp)}"
-}
+#   ip_range = "10.0.0.0/8"
+#   protocol = "UDP"
+#   port     = "${element(local.ports_local_udp, count.index)}"
+#   count    = "${length(local.ports_local_udp)}"
+# }
 
-resource "scaleway_security_group_rule" "accept_local_outbound_tcp" {
-  security_group = "${scaleway_security_group.cluster.id}"
+# resource "scaleway_security_group_rule" "accept_local_outbound_tcp" {
+#   security_group = "${scaleway_security_group.cluster.id}"
 
-  action    = "accept"
-  direction = "outbound"
+#   action    = "accept"
+#   direction = "outbound"
 
-  ip_range = "10.0.0.0/8"
-  protocol = "TCP"
-  port     = "${element(local.ports_local_tcp, count.index)}"
-  count    = "${length(local.ports_local_tcp)}"
-}
+#   ip_range = "10.0.0.0/8"
+#   protocol = "TCP"
+#   port     = "${element(local.ports_local_tcp, count.index)}"
+#   count    = "${length(local.ports_local_tcp)}"
+# }
 
-resource "scaleway_security_group_rule" "accept_local_outbound_udp" {
-  security_group = "${scaleway_security_group.cluster.id}"
+# resource "scaleway_security_group_rule" "accept_local_outbound_udp" {
+#   security_group = "${scaleway_security_group.cluster.id}"
 
-  action    = "accept"
-  direction = "outbound"
+#   action    = "accept"
+#   direction = "outbound"
 
-  ip_range = "10.0.0.0/8"
-  protocol = "UDP"
-  port     = "${element(local.ports_local_udp, count.index)}"
-  count    = "${length(local.ports_local_udp)}"
-}
+#   ip_range = "10.0.0.0/8"
+#   protocol = "UDP"
+#   port     = "${element(local.ports_local_udp, count.index)}"
+#   count    = "${length(local.ports_local_udp)}"
+# }
 
 # =====================================
 # Server
@@ -146,11 +139,11 @@ resource "scaleway_server" "server" {
   }
 
   provisioner "local-exec" {
-    command = "${path.module}/helpers/scripts/config_write consul_user=${local.consul_user} consul_group=${local.consul_group} vault_user=${local.vault_user} vault_group=${local.vault_group} nomad_user=${local.nomad_user} nomad_group=${local.nomad_group} hostname=${var.hostname} private_key_path=${var.private_key_path} ports_local_tcp=${join(",", local.ports_local_tcp)} ports_local_udp=${join(",", local.ports_local_udp)} consul_version=${local.consul_version} consul_type=${local.consul_type} consul_expect=${var.consul_expect} nomad_version=${local.nomad_version} nomad_type=${local.nomad_type} nomad_expect=${var.nomad_expect} vault_version=${local.vault_version} vault_type=${local.vault_type} docker_type=${local.docker_type} name=${var.region}_${var.type}_${count.index} join=${var.join} loopback_ip=${local.loopback_ip} type=${var.type} region=${var.region} private_ip=${self.private_ip} public_ip=${self.public_ip} "
+    command = "${path.module}/helpers/scripts/config_write ${var.data_path}/${var.region}_${var.type}_${count.index}/input consul_user=${local.consul_user} consul_group=${local.consul_group} vault_user=${local.vault_user} vault_group=${local.vault_group} nomad_user=${local.nomad_user} nomad_group=${local.nomad_group} hostname=${var.hostname} private_key_path=${var.private_key_path} ports_local_tcp=${join(",", local.ports_local_tcp)} ports_local_udp=${join(",", local.ports_local_udp)} consul_version=${local.consul_version} consul_type=${local.consul_type} nomad_version=${local.nomad_version} nomad_type=${local.nomad_type} vault_version=${local.vault_version} vault_type=${local.vault_type} docker_type=${local.docker_type} name=${var.region}_${var.type}_${count.index} count=${var.count} join=${var.join} loopback_ip=${local.loopback_ip} type=${var.type} region=${var.region} private_ip=${self.private_ip} public_ip=${self.public_ip} "
   }
 
   provisioner "local-exec" {
-    command = "${path.module}/helpers/scripts/local_begin"
+    command = "${path.module}/helpers/scripts/local_begin ${var.data_path}/${var.region}_${var.type}_${count.index}"
   }
 
   connection {
@@ -165,13 +158,18 @@ resource "scaleway_server" "server" {
     inline = [
       "sysctl kernel.hostname=${var.region}_${var.type}_${count.index}",
       "rm -Rf /root/cluster",
-      "mkdir -p /root/cluster /root/cluster/data",
+      "mkdir -p /root/cluster /root/cluster/scripts /root/cluster/data",
     ]
   }
 
   provisioner "file" {
-    source      = "${path.module}/helpers/"
-    destination = "/root/cluster"
+    source      = "${path.module}/helpers/scripts/"
+    destination = "/root/cluster/scripts"
+  }
+
+  provisioner "file" {
+    source      = "${var.data_path}/${var.region}_${var.type}_${count.index}/"
+    destination = "/root/cluster/data"
   }
 
   provisioner "remote-exec" {
@@ -182,7 +180,7 @@ resource "scaleway_server" "server" {
   }
 
   provisioner "local-exec" {
-    command = "${path.module}/helpers/scripts/local_end"
+    command = "${path.module}/helpers/scripts/local_end ${var.data_path}/${var.region}_${var.type}_${count.index}"
   }
 
   provisioner "remote-exec" {

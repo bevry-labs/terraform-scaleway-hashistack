@@ -2,29 +2,20 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
 echo '<consul_configure>'
-echo ''
 
 # Variables
 user="$(cat ../data/input/consul_user)"
 group="$(cat ../data/input/consul_group)"
 consul_type="$(cat ../data/input/consul_type)"
-consul_expect="$(cat ../data/input/consul_expect)"
 private_ip="$(cat ../data/input/private_ip)"
 loopback_ip="$(cat ../data/input/loopback_ip)"
 join="$(cat ../data/input/join)"
 
-# Outputs
-if test -f ../data/shared/auth/consul_gossip_key; then
-	consul_gossip_key="$(cat ../data/shared/auth/consul_gossip_key)"
-else
-	openssl rand -base64 16 > ../data/output/auth/consul_gossip_key
-	consul_gossip_key="$(cat ../data/output/auth/consul_gossip_key)"
-fi
+# Shared
+consul_gossip_key="$(cat ../data/shared/auth/consul_gossip_key)"
 
 # Write configuration files
-# "recursors" : [ "1.1.1.1", "1.0.0.1" ],
 echo "Writing consul configuration..."
 cat > ../data/local/conf/consul.conf <<EOF
 [Unit]
@@ -45,7 +36,12 @@ Group=${group}
 WantedBy=multi-user.target
 EOF
 
+# @todo consider moving to provider retry-join
+# https://www.consul.io/docs/agent/options.html#scaleway
+
 # BASE
+# "recursors" : [ "1.1.1.1", "1.0.0.1" ],
+# https://www.consul.io/docs/agent/options.html#recursors
 cat > ../data/local/conf/consul_base.json <<EOF
 {
 	"encrypt": "${consul_gossip_key}",
@@ -93,7 +89,6 @@ EOF
 # MASTER
 cat > ../data/local/conf/consul_master.json <<EOF
 {
-	"bootstrap_expect": ${consul_expect},
 	"server": true,
 	"retry_join": ["${join}"]
 }
@@ -122,12 +117,16 @@ fi
 
 # DNS
 echo "Configuring Consul DNS access..."
-nameserver_config="nameserver ${loopback_ip}"
-if grep "$nameserver_config" < /etc/resolv.conf; then
-	echo "nameserver already configured"
+if grep "1.1.1.1" < /etc/resolv.conf; then
+	echo 'nameservers already adjusted'
 else
-	echo "$nameserver_config" | cat - /etc/resolv.conf > /tmp/resolv.conf && sudo mv /tmp/resolv.conf /etc/resolv.conf
+	echo 'adjusting nameservers...'
+	resolv_contents="$(cat /etc/resolv.conf)"
+	echo -e "nameserver ${loopback_ip}\\nnameserver 1.1.1.1\\nnameserver 1.0.0.1\\n${resolv_contents}" > /etc/resolv.conf
 fi
+# sudo service networking restart
+# systemctl disable NetworkManager
+# systemctl enable network
 # we can't just do
 # sudo echo "nameserver $LOOPBACK_IP" > /etc/resolv.conf
 # becasuse /etc/resolv.conf also contains these, which is necessary for scaleway networking perhaps... we could try add them to the consul resolver, but not sure that works
@@ -135,6 +134,4 @@ fi
 # domain cloud.online.net
 # search cloud.online.net
 
-echo ''
 echo '</consul_configure>'
-echo ''

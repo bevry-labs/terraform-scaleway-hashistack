@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 
-echo ''
 echo '<consul_env>'
-echo ''
 
 if test "${BASH_SOURCE[0]}" = "${0}"; then
 	echo "${BASH_SOURCE[0]} must be sourced"
@@ -19,6 +17,4 @@ if test -f /etc/certs/consul.key; then
 	# CONSUL_TLS_SERVER_NAME
 fi
 
-echo ''
 echo '</consul_env>'
-echo ''

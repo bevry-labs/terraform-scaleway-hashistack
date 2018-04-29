@@ -2,12 +2,8 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
 echo '<remote_end>'
-echo ''
 
 ./shred /root/cluster
 
-echo ''
 echo '</remote_end>'
-echo ''

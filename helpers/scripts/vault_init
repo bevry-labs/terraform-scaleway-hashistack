@@ -2,12 +2,11 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
 echo '<vault_init>'
-echo ''
 
 # Local
 five_years=43800h
+short_ttl=72h
 temp="$(mktemp -d)"
 policy_file="$temp/nomad-server-policy.hcl"
 role_file="$temp/nomad-cluster-role.json"
@@ -25,12 +24,10 @@ trap finish EXIT
 hostname="$(cat ../data/input/hostname)"
 
 # Prepare
-# mkdir -p ../data/output/vault
+source ./vault_env
 
 # Initialise the vault
-echo ''
 echo "Initialising the vault..."
-source ./vault_env
 vault operator init -format=json > ../data/output/vault/init.json
 ./json_read unseal_keys_b64[0] < ../data/output/vault/init.json > ../data/output/auth/unseal_key_1
 ./json_read unseal_keys_b64[1] < ../data/output/vault/init.json > ../data/output/auth/unseal_key_2
@@ -45,7 +42,6 @@ source ./vault_env
 sleep 2
 
 # Create the cluster token
-echo ''
 echo 'Creating the cluster token...'
 vault token create -format=json -display-name=cluster > ../data/output/vault/cluster.json
 ./json_read auth.client_token < ../data/output/vault/cluster.json > ../data/output/auth/cluster_token
@@ -53,7 +49,7 @@ source ./vault_env
 
 # Enable PKI
 # https://www.vaultproject.io/docs/secrets/pki/index.html
-echo ''
+
 echo 'Creating PKI certificate authorities...'
 # root
 vault secrets enable pki
@@ -73,18 +69,18 @@ json data.certificate < ../data/output/vault/pki_int.json > ../data/output/vault
 # upload the signed certificate to vault
 vault write -format=json pki_int/intermediate/set-signed certificate=@../data/output/vault/pki_int.cert
 vault write -format=json pki_int/config/urls issuing_certificates="$VAULT_ADDR/v1/pki_int/ca" crl_distribution_points="$VAULT_ADDR/v1/pki_int/crl"
+# Allow the creation of certificates
+vault write -format=json pki_int/roles/host allowed_domains="$hostname,consul,vault,nomad" allow_subdomains=true max_ttl="$short_ttl"
 
 # https://www.nomadproject.io/docs/vault-integration/index.html
 # @todo perhaps can be replaced with: https://www.vaultproject.io/docs/secrets/nomad/index.html
-echo ''
+
 echo "Setup vault permissions for nomad..."
 ./download "https://nomadproject.io/data/vault/nomad-server-policy.hcl" "$policy_file"
 ./download "https://nomadproject.io/data/vault/nomad-cluster-role.json" "$role_file"
 vault policy write nomad-server "$policy_file"
 vault write /auth/token/roles/nomad-cluster @"$role_file"
-vault token create -format=json -policy nomad-server -period 72h -orphan > ../data/output/vault/nomad.json
+vault token create -format=json -policy nomad-server -period "$short_ttl" -orphan > ../data/output/vault/nomad.json
 ./json_read auth.client_token < ../data/output/vault/nomad.json > ../data/output/auth/nomad_token
 
-echo ''
 echo '</vault_init>'
-echo ''

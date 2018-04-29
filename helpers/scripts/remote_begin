@@ -2,14 +2,11 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
 echo '<remote_begin>'
-echo ''
 
 # Prepare
 mkdir -p \
 	../data/input \
-	../data/local/files \
 	../data/local/conf \
 	../data/output/cert \
 	../data/output/vault \
@@ -23,8 +20,6 @@ vault_type="$(cat ../data/input/vault_type)"
 docker_type="$(cat ../data/input/docker_type)"
 nomad_type="$(cat ../data/input/nomad_type)"
 
-
-echo ''
 echo "Installing dependencies..."
 sudo yum update -y
 if ! ./command_exists unzip; then
@@ -44,6 +39,10 @@ if ! ./command_exists json; then
 	npm install -g json
 fi
 
+# cloudflared / argo tunnel
+# sudo yum install -y go git
+# go get -v github.com/cloudflare/cloudflared/cmd/cloudflared
+
 # End of base
 if test "$type" = "base"; then
 	exit 0
@@ -54,53 +53,43 @@ if ! ./is_empty_dir ../data/shared/cert; then
 	cp -v ../data/shared/cert/* /etc/certs
 fi
 
-echo ''
 echo "Configuring ports..."
-# https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/security_guide/sec-using_firewalls
-while IFS=',' read -r port; do
+# https://github.com/bevry/terraform-scaleway-hashistack/issues/11
+tr ',' '\n' < ../data/input/ports_local_tcp | while read -r port || [ -n "$port" ]; do
 	echo "configuring local $port/tcp"
-	sudo firewall-cmd --zone=internal --add-port="$port/tcp" --permanent
-done <../data/input/ports_local_tcp
-while IFS=',' read -r port; do
+	sudo firewall-cmd --zone=public --add-port="$port/tcp" --permanent
+done
+tr ',' '\n' < ../data/input/ports_local_udp | while read -r port || [ -n "$port" ]; do
 	echo "configuring local $port/udp"
-	sudo firewall-cmd --zone=internal --add-port="$port/udp" --permanent
-done <../data/input/ports_local_udp
+	sudo firewall-cmd --zone=public --add-port="$port/udp" --permanent
+done
 sudo firewall-cmd --reload
 
-
-echo ''
 echo "Configuring services as $type..."
 
 if test -n "$consul_type"; then
-	echo ''
 	echo "Configuring consul as $consul_type..."
 	./consul
 fi
 
 if test -n "$vault_type"; then
-	echo ''
 	echo "Configuring vault as $vault_type..."
 	./vault
 fi
 
 if test "$type" = "origin"; then
-	echo ''
 	echo "Configuring TLS..."
 	./tls_enable
 fi
 
 if test -n "$docker_type"; then
-	echo ''
 	echo "Configuring docker as $docker_type..."
 	./docker
 fi
 
 if test -n "$nomad_type"; then
-	echo ''
 	echo "Configuring nomad as $nomad_type..."
 	./nomad
 fi
 
-echo ''
 echo '</remote_begin>'
-echo ''

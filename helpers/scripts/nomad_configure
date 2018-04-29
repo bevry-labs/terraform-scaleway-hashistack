@@ -2,28 +2,19 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
 echo '<nomad_configure>'
-echo ''
 
 # Variables
 user="$(cat ../data/input/nomad_user)"
 group="$(cat ../data/input/nomad_group)"
+count="$(cat ../data/input/count)"
 nomad_type="$(cat ../data/input/nomad_type)"
-nomad_expect="$(cat ../data/input/nomad_expect)"
 private_ip="$(cat ../data/input/private_ip)"
 region="$(cat ../data/input/region)"
 
 # Shared
 nomad_token="$(cat ../data/shared/auth/nomad_token)"
-
-# Outputs
-if test -f ../data/shared/auth/nomad_gossip_key; then
-	nomad_gossip_key="$(cat ../data/shared/auth/nomad_gossip_key)"
-else
-	openssl rand -base64 16 > ../data/output/auth/nomad_gossip_key
-	nomad_gossip_key="$(cat ../data/output/auth/nomad_gossip_key)"
-fi
+nomad_gossip_key="$(cat ../data/shared/auth/nomad_gossip_key)"
 
 # https://www.nomadproject.io/docs/agent/configuration/index.html
 # https://www.nomadproject.io/guides/cluster/automatic.html
@@ -53,8 +44,8 @@ EOF
 # BASE
 cat > ../data/local/conf/nomad_base.json <<EOF
 {
-	"encrypt": "${nomad_gossip_key}",
 	"data_dir": "/opt/nomad/data",
+	"datacenter": "global",
 	"consul": {},
 	"vault": {
 		"enabled": true,
@@ -95,9 +86,9 @@ cat > ../data/local/conf/nomad_tls.json <<EOF
 	"tls": {
 		"http": true,
 		"rpc": true,
-		"ca_file": "/etc/certs/nomad_server.ca",
-		"cert_file": "/etc/certs/nomad_server.crt",
-		"key_file": "/etc/certs/nomad_server.key",
+		"ca_file": "/etc/certs/nomad.ca",
+		"cert_file": "/etc/certs/nomad.crt",
+		"key_file": "/etc/certs/nomad.key",
 		"verify_https_client": true,
 		"verify_server_hostname": true
 	}
@@ -109,8 +100,9 @@ EOF
 cat > ../data/local/conf/nomad_master.json <<EOF
 {
 	"server": {
+		"encrypt": "${nomad_gossip_key}",
 		"enabled": true,
-		"bootstrap_expect": ${nomad_expect}
+		"bootstrap_expect": ${count}
 	}
 }
 EOF
@@ -120,34 +112,13 @@ cat > ../data/local/conf/nomad_slave.json <<EOF
 {}
 EOF
 
-# MASTER TLS
-cat > ../data/local/conf/nomad_master_tls.json <<EOF
-{}
-EOF
-
-# SLAVE TLS
-cat > ../data/local/conf/nomad_slave_tls.json <<EOF
-{
-	"tls": {
-		"http": true,
-		"rpc": true,
-		"ca_file": "/etc/certs/nomad_client.ca",
-		"cert_file": "/etc/certs/nomad_client.crt",
-		"key_file": "/etc/certs/nomad_client.key",
-		"verify_https_client": true,
-		"verify_server_hostname": true
-	}
-}
-EOF
-
 # Merge
-if test -f /etc/certs/nomad_server.key; then
+if test -f /etc/certs/nomad.key; then
 	echo 'Configuring Nomad for TLS...'
 	./json_merge \
 		../data/local/conf/nomad_base.json \
 		../data/local/conf/nomad_tls.json \
-		"../data/local/conf/nomad_${nomad_type}.json" \
-		"../data/local/conf/nomad_${nomad_type}_tls.json" > ../data/local/conf/nomad.json
+		"../data/local/conf/nomad_${nomad_type}.json" > ../data/local/conf/nomad.json
 else
 	echo 'Configuring Nomad without TLS...'
 	./json_merge \
@@ -155,25 +126,5 @@ else
 		"../data/local/conf/nomad_${nomad_type}.json" > ../data/local/conf/nomad.json
 fi
 
-# Merge
-if test -f /etc/certs/nomad_server.key; then
-	export NOMAD_CACERT=/etc/certs/ca.pem
-	export NOMAD_CLIENT_CERT=/etc/certs/nomad_cli.crt
-	export NOMAD_CLIENT_KEY=/etc/certs/nomad_cli.key
-	./json_merge \
-		./data/local/nomad_base.json \
-		../data/local/conf/nomad_tls.json \
-		"../data/local/conf/nomad_${nomad_type}.json" > ../data/local/conf/nomad.json
-else
-	./json_merge \
-		../data/local/conf/nomad_base.json \
-		"../data/local/conf/nomad_${nomad_type}.json" > ../data/local/conf/nomad.json
-fi
+echo '</nomad_configure>'
 
-
-# if vault.service.consul does not work, change it to
-# http://127.0.0.1:8200
-
-echo ''
-echo '<nomad_configure>'
-echo ''

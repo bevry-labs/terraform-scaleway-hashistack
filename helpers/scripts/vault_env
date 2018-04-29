@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 
-echo ''
 echo '<vault_env>'
-echo ''
 
 if test "${BASH_SOURCE[0]}" = "${0}"; then
 	echo "${BASH_SOURCE[0]} must be sourced"
@@ -11,6 +9,12 @@ fi
 
 # Variables
 private_ip="$(cat ../data/input/private_ip)"
+vault_type="$(cat ../data/input/vault_type)"
+if test "$vault_type" = "origin"; then
+	vault_hostname="$private_ip"
+else
+	vault_hostname='vault.service.consul'
+fi
 
 # Exports
 export VAULT_CLI_NO_COLOR=true
@@ -18,27 +22,28 @@ export VAULT_CLI_NO_COLOR=true
 # Configure vault CLI to access the vault server
 if test -f /etc/certs/vault.key; then
 	# https://www.vaultproject.io/docs/commands/index.html#environment-variables
-	export VAULT_ADDR="https://${private_ip}:8200"
-	export VAULT_CACERT=/etc/certs/user.ca
-	export VAULT_CLIENT_CERT=/etc/certs/user.crt
-	export VAULT_CLIENT_KEY=/etc/certs/user.key
+	export VAULT_ADDR="https://${vault_hostname}:8200"
+	export VAULT_CACERT=/etc/certs/vault.ca
+	export VAULT_CLIENT_CERT=/etc/certs/vault.crt
+	export VAULT_CLIENT_KEY=/etc/certs/vault.key
 	# VAULT_TLS_SERVER_NAME
 else
-	export VAULT_ADDR="http://${private_ip}:8200"
+	export VAULT_ADDR="http://${vault_hostname}:8200"
 fi
 
 # Update the vault token
-if test -f ../data/output/auth/root_token; then
+if test -f ../data/shared/auth/cluster_token; then
+	echo 'using shared cluster_token'
+	cluster_token="$(cat ../data/shared/auth/cluster_token)"
+	export VAULT_TOKEN="$cluster_token"
+elif test -f ../data/output/auth/cluster_token; then
+	echo 'using cluster_token'
+	cluster_token="$(cat ../data/output/auth/cluster_token)"
+	export VAULT_TOKEN="$cluster_token"
+elif test -f ../data/output/auth/root_token; then
+	echo 'using root_token'
 	root_token="$(cat ../data/output/auth/root_token)"
 	export VAULT_TOKEN="$root_token"
 fi
 
-# Update the vault token
-if test -f ../data/output/auth/cluster_token; then
-	cluster_token="$(cat ../data/output/auth/cluster_token)"
-	export VAULT_TOKEN="$cluster_token"
-fi
-
-echo ''
 echo '</vault_env>'
-echo ''

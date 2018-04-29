@@ -2,15 +2,12 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
 echo '<vault_unseal>'
-echo ''
 
 # Reload the vault env
 source ./vault_env
 
 # Unseal the vault
-echo ''
 echo "Unsealing the vault..."
 unseal_key_1="$(cat ../data/output/auth/unseal_key_1)"
 unseal_key_2="$(cat ../data/output/auth/unseal_key_2)"
@@ -19,6 +16,4 @@ vault operator unseal "$unseal_key_1"
 vault operator unseal "$unseal_key_2"
 vault operator unseal "$unseal_key_3"
 
-echo ''
 echo '</vault_unseal>'
-echo ''

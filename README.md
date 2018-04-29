@@ -65,6 +65,9 @@ If you need to debug DNS:
 ``` bash
 sudo yum install -y net-tools # ifconfig
 sudo yum install -y bind-utils # dig
+netstat -lnp
+netstat -rn
+route -n
 dig consul.service.consul
 dig @127.0.0.1 -p 8600 consul.service.consul SRV
 ```

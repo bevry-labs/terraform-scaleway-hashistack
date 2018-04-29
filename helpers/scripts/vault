@@ -2,20 +2,14 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
 echo '<vault>'
-echo ''
-
-# Variables
-vault_version="$(cat ../data/input/vault_version)"
 
 # Install vault
-./service_download "vault" "$vault_version"
 ./service_install vault
+./service_configure vault
 
-# Initialise vault, which initialises TLS, so reload everything
+# Initialise vault
 ./vault_init
+# curl --cacert /etc/certs/vault.ca --cert /etc/certs/vault.crt --key /etc/certs/vault.key "https://${private_ip}:8200"
 
-echo ''
 echo '</vault>'
-echo ''

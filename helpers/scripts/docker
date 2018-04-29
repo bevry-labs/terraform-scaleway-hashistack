@@ -2,15 +2,11 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
 echo '<docker>'
-echo ''
 
 echo "Installing Docker..."
 sudo yum install -y docker
 sudo systemctl enable docker
 sudo systemctl start docker
 
-echo ''
 echo '</docker>'
-echo ''

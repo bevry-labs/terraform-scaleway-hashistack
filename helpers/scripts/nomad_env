@@ -1,24 +1,26 @@
 #!/usr/bin/env bash
 
-echo ''
 echo '<nomad_env>'
-echo ''
 
 if test "${BASH_SOURCE[0]}" = "${0}"; then
 	echo "${BASH_SOURCE[0]} must be sourced"
 	exit 1
 fi
 
+# Variables
+private_ip="$(cat ../data/input/private_ip)"
+
+# TLS
 if test -f /etc/certs/nomad.key; then
+	# https://www.nomadproject.io/docs/commands/index.html
+	export NOMAD_ADDR="https://${private_ip}:4646"
 	# https://www.nomadproject.io/guides/securing-nomad.html#node-certificates
 	# client.global.nomad for a client node in the global region
 	# server.global.nomad for a server node in the us-west region
-	export NOMAD_CACERT=/etc/certs/user.ca
-	export NOMAD_CLIENT_CERT=/etc/certs/user.crt
-	export NOMAD_CLIENT_KEY=/etc/certs/user.key
+	export NOMAD_CACERT=/etc/certs/nomad.ca
+	export NOMAD_CLIENT_CERT=/etc/certs/nomad.crt
+	export NOMAD_CLIENT_KEY=/etc/certs/nomad.key
 	# export NOMAD_TLS_SERVER_NAME
 fi
 
-echo ''
 echo '</nomad_env>'
-echo ''

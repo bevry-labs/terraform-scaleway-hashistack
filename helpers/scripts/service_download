@@ -2,9 +2,9 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
+
 echo "<service_download $1 $2>"
-echo ''
+
 
 # Files
 temp="$(mktemp -d)"
@@ -18,6 +18,7 @@ trap finish EXIT
 # Locals
 service="$1"
 version="$2"
+out_file="$3"
 platform="linux_arm64"
 
 # Download ZIP
@@ -61,8 +62,8 @@ else
 fi
 
 # Move zip to files
-mv "$zip_file" "../data/local/files/$service.zip"
+mv "$zip_file" "$out_file"
 
-echo ''
+
 echo '</service_download>'
-echo ''
+

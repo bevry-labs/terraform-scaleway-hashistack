@@ -2,4 +2,5 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-curl -L "$1" -o "$2"
+# follow redirects (-L), be quiet (-s), but show errors (-S)
+curl -sS -L "$1" -o "$2"

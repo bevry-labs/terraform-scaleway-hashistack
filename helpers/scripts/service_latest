@@ -2,9 +2,7 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
 echo "<service_latest $1>"
-echo ''
 
 # Locals
 service="$1"
@@ -31,6 +29,4 @@ elif test "$latest_version" != "$version"; then
 	echo "$service [current $version] isnt [latest $latest_version] https://github.com/hashicorp/$service/blob/master/CHANGELOG.md"
 fi
 
-echo ''
 echo '</service_latest>'
-echo ''

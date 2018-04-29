@@ -2,17 +2,22 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
-echo '<local_begin>'
-echo ''
+echo "<local_begin $1>"
+
+# Inputs
+data_path="$1"
 
 # Notify
 if ./command_exists say; then
 	say "server allocated, starting setup"
 fi
 
+# sudo access
+echo 'Requesting sudo access at the start instead of later when you might miss it'
+sudo echo 'ok'
+
 # Variables
-public_ip="$(cat ../data/input/public_ip)"
+public_ip="$(cat "$data_path/input/public_ip")"
 
 # Check latest version
 ./service_latest "consul"
@@ -20,7 +25,6 @@ public_ip="$(cat ../data/input/public_ip)"
 ./service_latest "nomad"
 
 # Known Hosts
-echo ''
 echo "removing old keys of the host"
 ssh-keygen -R "$public_ip" || echo 'no old keys for the host'
 echo "adding new keys for the host"
@@ -32,6 +36,4 @@ echo "cleaning up"
 echo 'testing the new connection'
 echo 'exit' | ssh -T "root@$public_ip"
 
-echo ''
 echo '</local_begin>'
-echo ''

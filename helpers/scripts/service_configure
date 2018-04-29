@@ -2,20 +2,31 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
 echo "<service_configure $1>"
-echo ''
 
 # Arguments
 service="$1"
+
+# Clean
+function finish {
+	if sudo systemctl is-enabled "$service"; then
+		sudo systemctl status "$service" -l
+		# determine executable
+		# service_exec="$(grep ExecStart < "/etc/systemd/system/$service.service" | sed 's/ExecStart=//')"
+		# $service_exec
+		# sudo journalctl -u "$service"
+		# sudo journalctl -f -u "$service"
+	fi
+}
+trap finish EXIT
+
+# Variables
 user="$(cat "../data/input/${service}_user")"
 group="$(cat "../data/input/${service}_group")"
 
-echo ''
 echo "Running custom configuration script for $service..."
 "./${service}_configure"
 
-echo ''
 echo "Configuring service configuration for $service..."
 # service configuration
 sudo rm -Rf "/etc/systemd/system/$service.d"
@@ -24,7 +35,6 @@ sudo mv "../data/local/conf/$service.json" "/etc/systemd/system/$service.d/$serv
 sudo chmod 0640 "/etc/systemd/system/$service.d/$service.json"
 sudo chown "$user:$group" "/etc/systemd/system/$service.d/$service.json"
 
-echo ''
 echo "Injecting service for $service..."
 # service specification
 sudo rm -Rf "/etc/systemd/system/$service.service"
@@ -32,6 +42,14 @@ sudo mv "../data/local/conf/$service.conf" "/etc/systemd/system/$service.service
 sudo chmod 0640 "/etc/systemd/system/$service.service"
 sudo chown "$user:$group" "/etc/systemd/system/$service.service"
 
-echo ''
+echo "Reload service daeomon $service..."
+sudo systemctl daemon-reload
+
+echo "Enabling service for $service..."
+sudo systemctl enable "$service.service"
+
+echo "Starting service for $service..."
+sudo systemctl restart "$service"
+sleep 2
+
 echo '</service_configure>'
-echo ''

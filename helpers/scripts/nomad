@@ -2,18 +2,69 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
 echo '<nomad>'
-echo ''
 
 # Variables
-nomad_version="$(cat ../data/input/nomad_version)"
+nomad_type="$(cat ../data/input/nomad_type)"
+private_ip="$(cat ../data/input/private_ip)"
+public_ip="$(cat ../data/input/public_ip)"
+loopback_ip="$(cat ../data/input/loopback_ip)"
+hostname="$(cat ../data/input/hostname)"
 
+# -------------------------------------
+# TLS
+
+echo 'Generating TLS certificates for nomad...'
+
+if ! ./command_exists vault; then
+	./service_install vault
+fi
+
+# source vault
+source ./vault_env
+
+# nomad server
+if test "$nomad_type" = "master"; then
+	vault write -format=json pki_int/issue/host common_name="server.nomad.$hostname" alt_names="server.global.nomad" ip_sans="${private_ip},${loopback_ip},${public_ip}" > ../data/output/vault/pki_int_nomad.json
+	json data.private_key < ../data/output/vault/pki_int_nomad.json > ../data/output/cert/nomad.key
+	json data.certificate < ../data/output/vault/pki_int_nomad.json > ../data/output/cert/nomad.crt
+	json data.issuing_ca < ../data/output/vault/pki_int_nomad.json > ../data/output/cert/nomad.ca
+elif test "$nomad_type" = "slave"; then
+	vault write -format=json pki_int/issue/host common_name="client.nomad.$hostname" alt_names="client.global.nomad" ip_sans="${private_ip},${loopback_ip},${public_ip}" > ../data/output/vault/pki_int_nomad.json
+	json data.private_key < ../data/output/vault/pki_int_nomad.json > ../data/output/cert/nomad.key
+	json data.certificate < ../data/output/vault/pki_int_nomad.json > ../data/output/cert/nomad.crt
+	json data.issuing_ca < ../data/output/vault/pki_int_nomad.json > ../data/output/cert/nomad.ca
+fi
+
+# copy the certs
+cp -v ../data/output/cert/* /etc/certs
+
+# -------------------------------------
 # Install
-./service_download "nomad" "$nomad_version"
-./service_install nomad
 
-echo ''
+./service_install nomad
+./service_configure nomad
+
+# -------------------------------------
+# Gossip Encryption
+
+source ./nomad_env
+echo 'Configuring Gossip Encryption for nomad...'
+nomad_gossip_key="$(cat ../data/shared/auth/nomad_gossip_key)"
+nomad operator keyring -install="$nomad_gossip_key"
+nomad operator keyring -use="$nomad_gossip_key"
+nomad operator keyring -list
+
+# echo 'Generating a new gossip key for nomad...'
+# nomad operator keygen | tr -d '\n' > ../data/output/auth/nomad_gossip_key
+# nomad_gossip_key="$(cat ../data/output/auth/nomad_gossip_key)"
+# nomad operator keyring -install="$nomad_gossip_key"
+# nomad operator keyring -use="$nomad_gossip_key"
+# nomad operator keyring -list
+# echo 'And removing the old gossip key...'
+# nomad operator keyring -remove="$(./json_read encrypt < /etc/systemd/system/nomad.d/nomad.json)"
+# nomad operator keyring -list
+
 echo '</nomad>'
-echo ''
+
 

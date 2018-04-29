@@ -2,55 +2,90 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
-echo '<local_end>'
-echo ''
+echo "<local_end $1>"
+
+# Inputs
+data_path="$1"
 
 # Variables
-private_key_path="$(cat ../data/input/private_key_path)"
-public_ip="$(cat ../data/input/public_ip)"
-hostname="$(cat ../data/input/hostname)"
-type="$(cat ../data/input/type)"
-vault_type="$(cat ../data/input/vault_type)"
+private_key_path="$(cat "$data_path/input/private_key_path")"
+private_ip="$(cat "$data_path/input/private_ip")"
+public_ip="$(cat "$data_path/input/public_ip")"
+hostname="$(cat "$data_path/input/hostname")"
+type="$(cat "$data_path/input/type")"
+nomad_type="$(cat "$data_path/input/nomad_type")"
+vault_type="$(cat "$data_path/input/vault_type")"
 
 # Copy remote files
 if test "$vault_type" = "origin"; then
-	echo ''
 	echo "copying outputs and extracting values"
-	scp -i "$private_key_path" -r "root@$public_ip:/root/cluster/data/output/*" ../data/output
+	scp -i "$private_key_path" -r "root@$public_ip:/root/cluster/data/output/*" "$data_path/output"
 fi
 
 # Copy outputs to shared
-if test -f ../data/output/auth/consul_gossip_key; then
-	cp -v ../data/output/auth/consul_gossip_key ../data/shared/auth/
+if test -f "$data_path/output/auth/consul_gossip_key"; then
+	cp -v "$data_path/output/auth/consul_gossip_key" "$data_path/shared/auth/"
 fi
-if test -f ../data/output/auth/nomad_gossip_key; then
-	cp -v ../data/output/auth/nomad_gossip_key ../data/shared/auth/
+if test -f "$data_path/output/auth/nomad_gossip_key"; then
+	cp -v "$data_path/output/auth/nomad_gossip_key" "$data_path/shared/auth/"
 fi
 if test "$type" = "origin"; then
-	cp -v ../data/output/auth/nomad_token ../data/shared/auth/
-	cp -v ../data/output/cert/* ../data/shared/cert/
+	cp -v "$data_path/output/auth/cluster_token" "$data_path/shared/auth/"
+	cp -v "$data_path/output/auth/nomad_token" "$data_path/shared/auth/"
+	cp -v "$data_path/output/cert/"* "$data_path/shared/cert/"
 fi
 
 # Add certificates to system
 if test "$type" = "origin"; then
-	./tls_add consul
-	./tls_add vault
-	./tls_add user
+	./tls_add "$data_path/output/cert/consul"
+	./tls_add "$data_path/output/cert/vault"
+	./tls_add "$data_path/output/cert/user"
+fi
+if test -n "$nomad_type"; then
+	./tls_add "$data_path/output/cert/nomad"
 fi
 
-# Done
+# IPs
 echo ''
-echo "...ALL DONE..."
-echo "to access the consul web ui, and ssh into the server use the following:"
+echo "Cluster Type: $type"
+echo "Public IP: $public_ip"
+echo "Private IP: $private_ip"
+
+# SSH
+echo ''
+echo 'SSH:'
+echo "ssh root@$public_ip"
+echo "export private_ip=$private_ip"
+
+# Consul
+echo ''
+echo 'Consul Web UI:'
 echo "ssh -L 127.0.0.1:8500:127.0.0.1:8500 root@$public_ip"
 echo "open https://consul.$hostname:8500"
+
+# Vault
+if test -n "$vault_type"; then
+	echo ''
+	echo 'Vault Web UI:'
+	echo "ssh -L 127.0.0.1:8200:127.0.0.1:8200 root@$public_ip"
+	echo "open https://vault.$hostname:8200/ui"
+fi
+
+# Nomad
+if test -n "$nomad_type"; then
+	echo ''
+	echo 'Nomad Web UI:'
+	echo "ssh -L 127.0.0.1:4646:127.0.0.1:4646 root@$public_ip"
+	echo "open https://server.nomad.$hostname:4646"
+fi
 
 # Notify
 if ./command_exists say; then
 	say "server setup, all done"
 fi
 
-echo ''
+
+echo "...ALL DONE..."
+
 echo '</local_end>'
-echo ''
+

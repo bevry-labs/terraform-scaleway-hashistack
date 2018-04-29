@@ -2,9 +2,7 @@
 set -ueE -o pipefail
 cd "$(dirname "$0")"
 
-echo ''
 echo '<vault_configure>'
-echo ''
 
 # Variables
 user="$(cat ../data/input/vault_user)"
@@ -18,9 +16,6 @@ if test "$vault_type" != "origin"; then
 	exit 1
 fi
 
-# Configuration of vault is completely automatic thanks to consul
-# https://www.vaultproject.io/docs/configuration/storage/consul.html
-# but we still need a configuration file apparently...
 echo "Writing vault configuration..."
 cat > ../data/local/conf/vault.conf <<EOF
 [Unit]
@@ -60,6 +55,7 @@ cat > ../data/local/conf/vault_base.json <<EOF
 EOF
 
 # TLS
+# https://www.vaultproject.io/docs/configuration/storage/consul.html
 cat > ../data/local/conf/vault_tls.json <<EOF
 {
 	"listener": {
@@ -69,7 +65,8 @@ cat > ../data/local/conf/vault_tls.json <<EOF
 			"tls_cert_file": "/etc/certs/vault.crt",
 			"tls_key_file": "/etc/certs/vault.key",
 			"tls_client_ca_file": "/etc/certs/vault.ca",
-			"tls_require_and_verify_client_cert": true
+			"tls_require_and_verify_client_cert": true,
+			"tls_disable": false
 		}
 	},
 	"storage": {
@@ -94,6 +91,4 @@ else
 	cp ../data/local/conf/vault_base.json ../data/local/conf/vault.json
 fi
 
-echo ''
 echo '</vault_configure>'
-echo ''

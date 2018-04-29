@@ -41,13 +41,3 @@ variable "bootscript" {
   type    = "string"
   default = ""
 }
-
-variable "consul_expect" {
-  type    = "string"
-  default = 0
-}
-
-variable "nomad_expect" {
-  type    = "string"
-  default = 0
-}
