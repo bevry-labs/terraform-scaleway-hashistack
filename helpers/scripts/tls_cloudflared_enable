@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -ueE -o pipefail
+
+echo '<tls_cloudflared_enable>'
+
+# Variables
+hostname="$(cat ../data/input/hostname)"
+
+echo 'verify cloudflared works'
+cloudflared --version
+
+# echo 'login to cloudflared'
+# cloudflared login
+
+echo 'create the service'
+# cloudflared/config.yml
+sudo cloudflared service install
+
+# echo 'create a tunnel'
+# cloudflared --hostname "$hostname" --hello-world
+
+# /Users/balupton/.cloudflared/cert.pem
+echo '</tls_cloudflared_enable>'

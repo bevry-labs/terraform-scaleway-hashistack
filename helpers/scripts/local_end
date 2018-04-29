@@ -15,6 +15,7 @@ hostname="$(cat "$data_path/input/hostname")"
 type="$(cat "$data_path/input/type")"
 nomad_type="$(cat "$data_path/input/nomad_type")"
 vault_type="$(cat "$data_path/input/vault_type")"
+tls_mode="$(cat "$data_path/input/tls_mode")"
 
 # Copy remote files
 if test "$vault_type" = "origin"; then
@@ -36,13 +37,14 @@ if test "$type" = "origin"; then
 fi
 
 # Add certificates to system
-if test "$type" = "origin"; then
-	./tls_add "$data_path/output/cert/consul"
-	./tls_add "$data_path/output/cert/vault"
-	./tls_add "$data_path/output/cert/user"
-fi
-if test -n "$nomad_type"; then
-	./tls_add "$data_path/output/cert/nomad"
+if test "$tls_mode" = "local"; then
+	if test "$type" = "origin"; then
+		./tls_local_add "$data_path/output/cert/consul"
+		./tls_local_add "$data_path/output/cert/vault"
+	fi
+	if test -n "$nomad_type"; then
+		./tls_local_add "$data_path/output/cert/nomad"
+	fi
 fi
 
 # IPs
@@ -61,6 +63,7 @@ echo "export private_ip=$private_ip"
 echo ''
 echo 'Consul Web UI:'
 echo "ssh -L 127.0.0.1:8500:127.0.0.1:8500 root@$public_ip"
+echo "open http://consul.$hostname:8500"
 echo "open https://consul.$hostname:8500"
 
 # Vault
@@ -68,6 +71,7 @@ if test -n "$vault_type"; then
 	echo ''
 	echo 'Vault Web UI:'
 	echo "ssh -L 127.0.0.1:8200:127.0.0.1:8200 root@$public_ip"
+	echo "open http://vault.$hostname:8200/ui"
 	echo "open https://vault.$hostname:8200/ui"
 fi
 
@@ -76,6 +80,7 @@ if test -n "$nomad_type"; then
 	echo ''
 	echo 'Nomad Web UI:'
 	echo "ssh -L 127.0.0.1:4646:127.0.0.1:4646 root@$public_ip"
+	echo "open http://server.nomad.$hostname:4646"
 	echo "open https://server.nomad.$hostname:4646"
 fi
 

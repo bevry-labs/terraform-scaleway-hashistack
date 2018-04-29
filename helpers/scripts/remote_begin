@@ -4,6 +4,14 @@ cd "$(dirname "$0")"
 
 echo '<remote_begin>'
 
+# Variables
+type="$(cat ../data/input/type)"
+consul_type="$(cat ../data/input/consul_type)"
+vault_type="$(cat ../data/input/vault_type)"
+docker_type="$(cat ../data/input/docker_type)"
+nomad_type="$(cat ../data/input/nomad_type)"
+tls_mode="$(cat ../data/input/tls_mode)"
+
 # Prepare
 mkdir -p \
 	../data/input \
@@ -12,13 +20,6 @@ mkdir -p \
 	../data/output/vault \
 	../data/output/auth \
 	/etc/certs
-
-# Variables
-type="$(cat ../data/input/type)"
-consul_type="$(cat ../data/input/consul_type)"
-vault_type="$(cat ../data/input/vault_type)"
-docker_type="$(cat ../data/input/docker_type)"
-nomad_type="$(cat ../data/input/nomad_type)"
 
 echo "Installing dependencies..."
 sudo yum update -y
@@ -39,22 +40,25 @@ if ! ./command_exists json; then
 	npm install -g json
 fi
 
-# cloudflared / argo tunnel
-# sudo yum install -y go git
-# go get -v github.com/cloudflare/cloudflared/cmd/cloudflared
+if "$tls_mode" = "cloudflared"; then
+	sudo yum install -y go git
+	go install -v github.com/cloudflare/cloudflared/cmd/cloudflared
+fi
 
 # End of base
 if test "$type" = "base"; then
 	exit 0
 fi
 
-# Copy shared certs
-if ! ./is_empty_dir ../data/shared/cert; then
-	cp -v ../data/shared/cert/* /etc/certs
+if test "$tls_mode" = "local"; then
+	if ! ./is_empty_dir ../data/shared/cert; then
+		cp -v ../data/shared/cert/* /etc/certs
+	fi
 fi
 
 echo "Configuring ports..."
 # https://github.com/bevry/terraform-scaleway-hashistack/issues/11
+# @todo not sure if this is necessary when using cloudflared
 tr ',' '\n' < ../data/input/ports_local_tcp | while read -r port || [ -n "$port" ]; do
 	echo "configuring local $port/tcp"
 	sudo firewall-cmd --zone=public --add-port="$port/tcp" --permanent
@@ -77,11 +81,6 @@ if test -n "$vault_type"; then
 	./vault
 fi
 
-if test "$type" = "origin"; then
-	echo "Configuring TLS..."
-	./tls_enable
-fi
-
 if test -n "$docker_type"; then
 	echo "Configuring docker as $docker_type..."
 	./docker
@@ -90,6 +89,14 @@ fi
 if test -n "$nomad_type"; then
 	echo "Configuring nomad as $nomad_type..."
 	./nomad
+fi
+
+if test "$tls_mode" = "local"; then
+	echo "Enabling Local TLS via Vault PKI..."
+	./tls_local_enable
+elif test "$tls_mode" = "cloudflared"; then
+	echo 'Enabling TLS via Cloudflare Argo Tunnel (cloudflared)...'
+	./tls_cloudflared_enable
 fi
 
 echo '</remote_begin>'

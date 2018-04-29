@@ -16,14 +16,4 @@ consul keyring -install="$consul_gossip_key"
 consul keyring -use="$consul_gossip_key"
 consul keyring -list
 
-# echo 'Generating a new gossip key for consul...'
-# consul keygen | tr -d '\n' > ../data/output/auth/consul_gossip_key
-# consul_gossip_key="$(cat ../data/output/auth/consul_gossip_key)"
-# consul keyring -install="$consul_gossip_key"
-# consul keyring -use="$consul_gossip_key"
-# consul keyring -list
-# echo 'And removing the old gossip key...'
-# consul keyring -remove="$(./json_read encrypt < /etc/systemd/system/consul.d/consul.json)"
-# consul keyring -list
-
 echo '</consul>'

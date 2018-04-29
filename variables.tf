@@ -1,3 +1,12 @@
+variable "tls_mode" {
+  type    = "string"
+  default = "cloudflared"
+
+  # options:
+  # cloudflared: cloudflare's argo tunnel
+  # local: generate via vault, not yet functional for nomad
+}
+
 variable "data_path" {
   type = "string"
 }
