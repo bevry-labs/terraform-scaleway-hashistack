@@ -1,19 +1,12 @@
-# https://github.com/nicolai86/scaleway-terraform-demo/blob/master/main.tf
-# https://github.com/nicolai86/scaleway-terraform-demo/blob/master/modules/consul/main.tf
-# https://github.com/nicolai86/scaleway-terraform-demo/blob/master/modules/nomad/main.tf
-# https://github.com/hashicorp/terraform-aws-consul/blob/master/modules/install-consul/install-consul
-# https://www.consul.io/docs/agent/options.html?#ports-used
-# https://www.consul.io/docs/agent/options.html#scaleway
-# https://www.terraform.io/docs/provisioners/connection.html
-# https://github.com/hashicorp/nomad/tree/master/terraform
-# https://github.com/hashicorp/consul/blob/master/terraform/digitalocean/consul.tf
-# https://github.com/hashicorp/consul/blob/master/terraform/shared/scripts/install.sh
-# https://github.com/hashicorp/consul/blob/master/terraform/shared/scripts/rhel_consul.service
-
-# https://www.consul.io/docs/agent/options.html#ports-used
-# https://stackoverflow.com/a/43404044/130638
-# https://forums.docker.com/t/docker-ports-in-aws-ec2/15799
-# web_ports = [443]
+# Web Ports:
+#   [80, 443]
+# Consul Ports:
+#   https://www.consul.io/docs/agent/options.html#ports-used
+# Docker Ports:
+#   https://stackoverflow.com/a/43404044/130638
+#   => [2375, 2376, 2377, 5000, 4789, 7946]
+#   https://forums.docker.com/t/docker-ports-in-aws-ec2/15799
+#   => however, they should not be opened as they are a security risk
 locals {
   loopback_ip            = "127.0.0.1"
   docker_types           = "${map("slave", "present")}"
@@ -59,62 +52,6 @@ resource "scaleway_security_group" "cluster" {
   description             = "${var.type} cluster security group"
   enable_default_security = false
 }
-
-# resource "scaleway_security_group_rule" "accept_local_inbound_tcp" {
-#   security_group = "${scaleway_security_group.cluster.id}"
-
-#   action    = "accept"
-#   direction = "inbound"
-
-#   ip_range = "10.0.0.0/8"
-#   protocol = "TCP"
-#   port     = "${element(local.ports_local_tcp, count.index)}"
-#   count    = "${length(local.ports_local_tcp)}"
-# }
-
-# resource "scaleway_security_group_rule" "accept_local_inbound_udp" {
-#   security_group = "${scaleway_security_group.cluster.id}"
-
-#   action    = "accept"
-#   direction = "inbound"
-
-#   ip_range = "10.0.0.0/8"
-#   protocol = "UDP"
-#   port     = "${element(local.ports_local_udp, count.index)}"
-#   count    = "${length(local.ports_local_udp)}"
-# }
-
-# resource "scaleway_security_group_rule" "accept_local_outbound_tcp" {
-#   security_group = "${scaleway_security_group.cluster.id}"
-
-#   action    = "accept"
-#   direction = "outbound"
-
-#   ip_range = "10.0.0.0/8"
-#   protocol = "TCP"
-#   port     = "${element(local.ports_local_tcp, count.index)}"
-#   count    = "${length(local.ports_local_tcp)}"
-# }
-
-# resource "scaleway_security_group_rule" "accept_local_outbound_udp" {
-#   security_group = "${scaleway_security_group.cluster.id}"
-
-#   action    = "accept"
-#   direction = "outbound"
-
-#   ip_range = "10.0.0.0/8"
-#   protocol = "UDP"
-#   port     = "${element(local.ports_local_udp, count.index)}"
-#   count    = "${length(local.ports_local_udp)}"
-# }
-
-# =====================================
-# Server
-
-# Provision IP
-# resource "scaleway_ip" "public_ip" {
-#   count = "${var.count}"
-# }
 
 # Provision Server
 # public_ip           = "${element(scaleway_ip.public_ip.*.ip, count.index)}"
