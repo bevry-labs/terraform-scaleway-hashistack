@@ -21,6 +21,8 @@ if test -f /etc/certs/nomad.key; then
 	export NOMAD_CLIENT_CERT=/etc/certs/nomad.crt
 	export NOMAD_CLIENT_KEY=/etc/certs/nomad.key
 	# export NOMAD_TLS_SERVER_NAME
+else
+	export NOMAD_ADDR="http://${private_ip}:4646"
 fi
 
 echo '</nomad_env>'

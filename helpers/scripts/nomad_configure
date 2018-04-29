@@ -108,8 +108,16 @@ cat > ../data/local/conf/nomad_master.json <<EOF
 EOF
 
 # SLAVE
+# client.servers = ["nomad.service.consul"] <-- consul integration automatically detects this, so it is not needed
+# https://github.com/hashicorp/nomad/issues/2638#issuecomment-385239401
+cpu_total_compute="$(dmidecode -t 4 | grep 'Current Speed' | sed 's/.*: //' | sed 's/ .*//' | awk '{s+=$1} END {print s}')"
 cat > ../data/local/conf/nomad_slave.json <<EOF
-{}
+{
+	"client": {
+		"cpu_total_compute": ${cpu_total_compute},
+		"enabled": true
+	}
+}
 EOF
 
 # Merge

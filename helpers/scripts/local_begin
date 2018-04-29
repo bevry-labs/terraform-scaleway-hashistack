@@ -12,10 +12,6 @@ if ./command_exists say; then
 	say "server allocated, starting setup"
 fi
 
-# sudo access
-echo 'Requesting sudo access at the start instead of later when you might miss it'
-sudo echo 'ok'
-
 # Variables
 public_ip="$(cat "$data_path/input/public_ip")"
 

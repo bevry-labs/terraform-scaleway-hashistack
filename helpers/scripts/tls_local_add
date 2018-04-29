@@ -20,7 +20,8 @@ bundle_file="$base_path.p12"
 echo "creating $name pki bundle"
 openssl pkcs12 -export -CAfile "$ca_file" -inkey "$key_file" -in "$cert_file" -password "pass:$pass" -out "$bundle_file"
 echo "removing old $name pki bundle from system"
-echo 'ENTER YOUR OPERATING SYSTEM PASSWORD IN THE PROMPT'
+echo '!!! ENTER YOUR OPERATING SYSTEM PASSWORD IN THE PROMPT BELOW TO CONTINUE !!!'
+sudo echo 'ok'
 subject="$(openssl x509 -subject -in "$cert_file" -noout | sed 's/.*CN=//')"
 sudo security delete-identity -c "$subject" || echo "old bundle doesn't exist in system - ok"
 echo "adding $name pki bundle to keychain"

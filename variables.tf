@@ -1,6 +1,6 @@
 variable "tls_mode" {
   type    = "string"
-  default = "cloudflared"
+  default = "none"
 
   # options:
   # cloudflared: cloudflare's argo tunnel

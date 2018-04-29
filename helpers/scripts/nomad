@@ -9,13 +9,17 @@ echo '<nomad>'
 ./service_configure nomad
 
 # Gossip Encryption
-source ./nomad_env
-echo 'Configuring Gossip Encryption for nomad...'
-nomad_gossip_key="$(cat ../data/shared/auth/nomad_gossip_key)"
-nomad operator keyring -install="$nomad_gossip_key"
-nomad operator keyring -use="$nomad_gossip_key"
-nomad operator keyring -list
+nomad_type="$(cat ../data/input/nomad_type)"
+if test "$nomad_type" != "slave"; then
+	# keyring interaction is not available for clients/slaves, will produce:
+	# error: Unexpected response code: 501 (Invalid method)
+	echo 'Configuring Gossip Encryption for nomad...'
+	source ./nomad_env
+	nomad_gossip_key="$(cat ../data/shared/auth/nomad_gossip_key)"
+	nomad operator keyring -install="$nomad_gossip_key"
+	nomad operator keyring -use="$nomad_gossip_key"
+	nomad operator keyring -list
+fi
 
 echo '</nomad>'
-
 

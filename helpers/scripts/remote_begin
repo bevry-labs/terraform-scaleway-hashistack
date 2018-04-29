@@ -37,12 +37,28 @@ if ! ./command_exists node; then
 	sudo yum install -y nodejs --enablerepo=epel
 fi
 if ! ./command_exists json; then
-	npm install -g json
+	sudo npm install -g json
 fi
 
-if "$tls_mode" = "cloudflared"; then
-	sudo yum install -y go git
-	go install -v github.com/cloudflare/cloudflared/cmd/cloudflared
+if test "$tls_mode" = "cloudflared"; then
+	# this may or may not work due to
+	# https://github.com/cloudflare/cloudflared/issues/22
+	# https://github.com/cloudflare/cloudflared/issues/25
+	sudo yum install -y git
+
+	# install go manually, as yum has older version
+	# https://golang.org/doc/install
+	go_version='1.10.1'
+	go_arch='arm64'
+	go_url="https://dl.google.com/go/go${go_version}.linux-${go_arch}.tar.gz"
+	go_file="$(mktemp -d)/go$VERSION.$OS-$ARCH.tar.gz"
+	./download "$go_url" "$go_file"
+	tar -C /usr/local -xzf "$go_file"
+	export PATH=$PATH:/usr/local/go/bin
+	shred "$go_file"
+
+	# install cloudflared
+	sudo go install -v github.com/cloudflare/cloudflared/cmd/cloudflared
 fi
 
 # End of base

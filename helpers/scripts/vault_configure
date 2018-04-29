@@ -38,6 +38,8 @@ WantedBy=multi-user.target
 EOF
 
 # BASE
+# "api_addr": "${private_ip}:8200",
+# "cluster_addr": "${private_ip}:8201",
 cat > ../data/local/conf/vault_base.json <<EOF
 {
 	"ui": true,

@@ -9,11 +9,16 @@ echo '<consul>'
 ./service_configure consul
 
 # Gossip Encryption
-source ./consul_env
-echo 'Configuring Gossip Encryption for consul...'
-consul_gossip_key="$(cat ../data/shared/auth/consul_gossip_key)"
-consul keyring -install="$consul_gossip_key"
-consul keyring -use="$consul_gossip_key"
-consul keyring -list
+consul_type="$(cat ../data/input/consul_type)"
+if test "$consul_type" != "slave"; then
+	# keyring interaction is not available for clients/slaves, will produce:
+	# error: Unexpected response code: 500 (keyring operations must run against a server node)
+	echo 'Configuring Gossip Encryption for consul...'
+	source ./consul_env
+	consul_gossip_key="$(cat ../data/shared/auth/consul_gossip_key)"
+	consul keyring -install="$consul_gossip_key"
+	consul keyring -use="$consul_gossip_key"
+	consul keyring -list
+fi
 
 echo '</consul>'

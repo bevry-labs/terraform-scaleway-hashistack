@@ -7,19 +7,6 @@ echo "<service_configure $1>"
 # Arguments
 service="$1"
 
-# Clean
-function finish {
-	if sudo systemctl is-enabled "$service"; then
-		sudo systemctl status "$service" -l
-		# determine executable
-		# service_exec="$(grep ExecStart < "/etc/systemd/system/$service.service" | sed 's/ExecStart=//')"
-		# $service_exec
-		# sudo journalctl -u "$service"
-		# sudo journalctl -f -u "$service"
-	fi
-}
-trap finish EXIT
-
 # Variables
 user="$(cat "../data/input/${service}_user")"
 group="$(cat "../data/input/${service}_group")"
@@ -49,7 +36,16 @@ echo "Enabling service for $service..."
 sudo systemctl enable "$service.service"
 
 echo "Starting service for $service..."
-sudo systemctl restart "$service"
+if ! sudo systemctl restart "$service"; then
+	echo 'failed to start...'
+	echo 'here is the service status:'
+	sudo systemctl status "$service" -l
+	echo 'here are the process logs:'
+	sudo journalctl -u "$service"
+	echo 'and here is the manual execution:'
+	service_exec="$(grep ExecStart < "/etc/systemd/system/$service.service" | sed 's/ExecStart=//')"
+	$service_exec
+fi
 sleep 2
 
 echo '</service_configure>'

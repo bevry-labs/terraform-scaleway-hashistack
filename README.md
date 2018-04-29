@@ -7,7 +7,7 @@ This module is currently under construction. I would love assistance. [Please re
 ## Features
 
 - [x] deploys a consul, vault, nomad, docker cluster to scaleway
-- [x] configures scaleway and centos firewalls correctly
+- [x] configures firewalls correctly
 - [x] uses local TLS via `tls_mode=local`
     - [x] uses mutual TLS for consul and vault
     - [ ] uses mutual TLS for nomad
